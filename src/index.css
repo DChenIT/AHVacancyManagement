@@ -1,0 +1,123 @@
+/* ── Theme tokens — HumanGood brand palette ──────────────
+   Neutrals built from HG Shadow (#5c5c60) / HG Stone (#9fa0a1).
+   Accent pairs HG Frost (primary, vivid) for dark mode with
+   HG Dark Blue (secondary, "developed for readability") for light mode.
+   Status colors use the Secondary palette as-is in both themes, since
+   that palette was purpose-built by HumanGood for readability. ───── */
+:root, [data-theme="dark"] {
+  --bg-base:        #1a1a1d;
+  --bg-surface:     #242428;
+  --bg-subtle:      #201f23;
+  --border:         #3a3a40;
+  --border-hover:   #4a4a52;
+  --text-dim:       #626269;
+  --text-muted:     #8f8f95; /* lightened from #77777c - original was ~4.1:1 against --bg-base, too close to the WCAG AA 4.5:1 floor for real content */
+  --text-secondary: #9fa0a1; /* HG Stone */
+  --text-primary:   #f2f2f0;
+  --accent:         #67cfee; /* HG Frost */
+  --accent-fg:      #1a1a1d;
+  --danger:         #dd5857; /* HG Brick */
+  --danger-bg:      #dd585722;
+  --success:        #62b146; /* HG Kelly Green */
+  --success-bg:     #62b14622;
+  --warning:        #faa736; /* HG Marigold */
+  --warning-bg:     #faa73622;
+  --info:           #4a7ea5; /* HG Medium Blue */
+  --info-bg:        #4a7ea522;
+  --purple:         #89578c; /* HG Purple */
+  --purple-bg:      #89578c22;
+
+  /* HumanGood brand wash — translucent gradient over --bg-surface, tuned to read on dark.
+     Same treatment as the sibling apps (Grand Rounds Audit, Team Leave Calendar), toned
+     down from their original opacities — body text sits directly on these gradients
+     throughout this app (most screens have no opaque content background), so a strong
+     wash was hurting legibility. */
+  --hg-gradient: linear-gradient(
+    135deg,
+    rgba(55, 93, 119, 0.40) 0%,
+    rgba(103, 207, 238, 0.32) 50%,
+    rgba(228, 70, 126, 0.26) 100%
+  );
+
+  /* Edge-to-edge wash for the page body - a linear gradient scales with the box regardless
+     of viewport size, unlike percentage-radius radials which only tinted a corner on a full
+     browser window. Kept light so --bg-base and --text-primary contrast stays close to flat. */
+  --hg-gradient-page: linear-gradient(
+    160deg,
+    rgba(103, 207, 238, 0.16) 0%,
+    rgba(55, 93, 119, 0.18) 45%,
+    rgba(228, 70, 126, 0.14) 100%
+  );
+}
+
+[data-theme="light"] {
+  --bg-base:        #f7f7f6;
+  --bg-surface:     #ffffff;
+  --bg-subtle:      #eeeeec;
+  --border:         #dcdcda;
+  --border-hover:   #c7c7c5;
+  --text-dim:       #9a9a9c;
+  --text-muted:     #7a7a7f; /* darkened from HG Stone #9fa0a1 - that was only ~2.6:1 against white, well under the 4.5:1 floor for real content */
+  --text-secondary: #75757a;
+  --text-primary:   #5c5c60; /* HG Shadow */
+  --accent:         #375d77; /* HG Dark Blue */
+  --accent-fg:      #ffffff;
+  --danger:         #dd5857; /* HG Brick */
+  --danger-bg:      #dd585722;
+  --success:        #62b146; /* HG Kelly Green */
+  --success-bg:     #62b14622;
+  --warning:        #faa736; /* HG Marigold */
+  --warning-bg:     #faa73622;
+  --info:           #4a7ea5; /* HG Medium Blue */
+  --info-bg:        #4a7ea522;
+  --purple:         #89578c; /* HG Purple */
+  --purple-bg:      #89578c22;
+
+  /* HumanGood brand wash - kept light so body text (which sits directly on this gradient
+     on most screens) stays legible against --text-primary. */
+  --hg-gradient: linear-gradient(
+    135deg,
+    rgba(55, 93, 119, 0.30) 0%,
+    rgba(103, 207, 238, 0.24) 50%,
+    rgba(228, 70, 126, 0.20) 100%
+  );
+
+  --hg-gradient-page: linear-gradient(
+    160deg,
+    rgba(103, 207, 238, 0.14) 0%,
+    rgba(55, 93, 119, 0.16) 45%,
+    rgba(228, 70, 126, 0.12) 100%
+  );
+}
+
+/* ── Base reset ───────────────────────────────────────── */
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+a { color: var(--accent); text-decoration: none; }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+input, select, textarea {
+  font-family: inherit;
+}

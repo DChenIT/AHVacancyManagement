@@ -1,0 +1,142 @@
+# Vacancy Management — Memory Bank
+
+## Bug fix — Admin "Save" on portfolio vacancy goal silently did nothing
+
+Root cause was two-fold, both in code the user never flagged as risky at the time:
+- `useAppSettings.ts`'s `updatePortfolioVacancyGoal` threw `'Settings row not loaded yet'` whenever no `cr1e9_appsettings` row with `cr1e9_name = 'Global'` existed yet in the current environment. This is exactly the "solution migration brings schema, not data" gap already known from the Communities import — the work tenant likely never got a seeded Global row. The input still displayed "130" because that's just `PORTFOLIO_VACANCY_GOAL_DEFAULT`, the code's fallback, not a real saved value — so nothing looked wrong until Save was clicked.
+- `AdminScreen.tsx`'s `saveGoal()` and `saveCommunity()` both had `try { ... } finally { ... }` with **no `catch`** — any thrown error (this one or any future Dataverse error) vanished silently with zero user-visible feedback. This was the actual "why does it look broken" symptom.
+
+**Fix**: `updatePortfolioVacancyGoal` is now self-healing — if no Global row exists (`id` is null), it **creates** one instead of throwing, so the first save in any environment (including a freshly-migrated one with no seeded data) just works instead of requiring manual row seeding. Added proper `catch` + error display (`goalError` state, `communityErrors` record keyed by community id) to both save paths in `AdminScreen.tsx`, so any future failure is visible instead of silent.
+
+**General lesson for this codebase**: several save/update functions across hooks follow a `try { await X() } finally { ... }` pattern with no `catch` — worth auditing other components for the same silent-failure shape if similar "nothing happened" reports come in.
+
+## Theming, take 3 — solid blue header + white content boxes, branded background KEPT
+
+Follow-up to the "match Grand Rounds theming" request and the two legibility passes after it. First read of the feedback was "get rid of the gradient/watermark entirely" — that was wrong and got corrected immediately: the user still wants the branded `--hg-gradient-page` wash + `hg-infinity.webp` watermark on the page. The actual ask was narrower: any box that holds real information (tables, lists) needs an explicit solid `--bg-surface` background behind it so text stays legible against the wash, and headers should visually "pop" rather than blend in.
+- `App.tsx`: page root background/watermark **restored** to `background: var(--hg-gradient-page), var(--bg-base)` + the `hg-infinity.webp` `<img>` — do not remove these again without being asked.
+- `App.tsx` header: kept as flat `backgroundColor: var(--accent)` (solid blue) with `var(--accent-fg)` text — this part of the "pop out" ask was correct and stayed.
+- Audited every screen for information sitting directly on the page background with no white box behind it, and added `backgroundColor: 'var(--bg-surface)'` to each: the ranked table wrapper in `PriorityQueue.tsx`, the Units and Summary-by-Status table wrappers in `ReportPreview.tsx`, the Communities table wrapper in `AdminScreen.tsx`, and in `HomeDashboard.tsx` both the left property-list sidebar (previously fully transparent — the biggest offender, a long scrollable list of property names with no backing) and the selected-community name/code header block. Table `<thead>` rows already had `--bg-subtle`; it was specifically `<tbody>` rows and other loose text that lacked any background.
+- General pattern going forward: any new table, list, or block of real data needs an explicit `backgroundColor: 'var(--bg-surface)'` (or `--bg-subtle`) on its wrapper — don't assume the page's own background is fine to show through behind content.
+
+## Accessibility/legibility pass — done, app-wide
+
+Feedback that the whole app needed to be more legible for visually impaired users, not just the earlier gradient-opacity fix. Two-part audit:
+- **Font sizes**: every `fontSize:` inline style across all 8 files was audited (89 occurrences) and bumped up on a consistent scale via one `sed` pass across `src/**/*.tsx` (descending-order replacement — 15→16, 14→15, 13→14, 12→13, 11→13 — done in that order specifically to avoid chain-reaction double-bumping, since a naive ascending pass would catch its own output). Floor went from 11px to 13px; most body/label text now sits at 14-15px; large numbers/headings (18px+) were left alone since they were already fine.
+- **Color contrast**: `--text-muted` was actually failing WCAG AA in both themes when checked against real background colors — roughly 4.1:1 in dark mode (borderline, under the 4.5:1 floor for normal-size text) and only ~2.6:1 in light mode (`#9fa0a1` HG Stone directly on white — well under threshold). Fixed in `index.css`: dark `--text-muted` lightened to `#8f8f95`, light `--text-muted` darkened to `#7a7a7f` (now sits just barely lighter than `--text-secondary` #75757a rather than close to the background — at the accessible contrast floor, "muted" and "secondary" end up very close to each other, that's an inherent trade-off of prioritizing legibility over a wider visual hierarchy). `--text-secondary` and `--text-primary` were already fine and left untouched. `--text-dim` (the lowest tier) is defined but not actually used anywhere in the app, so no risk there.
+- Not touched: contrast of the 5 status badge colors against their `-bg` chips (success/warning/info/danger/purple) — those already carry both an icon and a colored background per the original "don't rely on color alone" requirement, and weren't flagged in this round of feedback specifically.
+
+## UX meeting feedback (easy batch) — done
+
+From a set of UX meeting notes with mixed suggestions, only the low-risk/no-pushback items were built (the rest — risk automation, marketing checklist, status category rework, "Compliance Approved" rename, policy reference tabs, "remove icons" — were pushed back on and left for the user to clarify with the team first; not started):
+- Added "Eviction" option to the Vacancy Type choice (`cr1e9_vacancytype`, new value 100000004) via `InsertOptionValue`.
+- Added new `cr1e9_subsidized` (Yes/No) column on `cr1e9_unitupdates` — "Are They Subsidized?".
+- Exposed three fields that already existed in the schema since Phase 1 but were never wired into the entry form: `cr1e9_additionalnotes` (unit Comment), `cr1e9_expectedvacancydate` (Expected Move-Out), `cr1e9_expectedmoveindate` (When Can Applicant Move In — reused the existing field rather than creating a duplicate, since they're the same concept).
+- After any Dataverse choice/column change, re-run `npx power-apps add-data-source -a dataverse -t <table> -u <org-url>` to regenerate the model/service before the new fields are usable in code — it's safe to re-run on an already-added data source, just refreshes it.
+- **Layout follow-up**: the 13-column single-row table (one `<tr>` per unit, horizontal scroll) got too cramped/fields were being cut off. Replaced with a card-per-unit layout in `VacancyReportEntry.tsx` — each unit is its own bordered card containing a CSS grid (`repeat(auto-fill, minmax(160px, 1fr))`) of labeled fields, naturally wrapping across as many lines as needed (Next Step and Comment span the full card width). No more horizontal scrolling; each entry is now taller instead of wider. `Field` is a small local helper component (label + child) used for every field in the card.
+
+## Project
+
+- Path: C:\Users\dchen\Projects\MyCodeApp\vacancy-management\
+- App name: Vacancy Management
+- App type: Power Apps Code App (React/Vite) — originally scoped as a Canvas App, switched because the user already has a proven Code App toolchain from the sibling project Team Leave Calendar and the Canvas Authoring MCP path required extra tooling (.NET 10 SDK + manual Studio coauthoring session) not yet set up.
+- Environment: c2916e4a-3eca-e66f-9dc1-71da73a3c714 (same dev environment as Team Leave Calendar, `orge3242d73.crm.dynamics.com`)
+- App URL: https://apps.powerapps.com/play/e/c2916e4a-3eca-e66f-9dc1-71da73a3c714/app/2836520c-a3fd-48e5-b8aa-0b4686843444
+- Dataverse publisher prefix: `cr1e9` (shared with Team Leave Calendar, same publisher/environment)
+- `scripts/setup-dataverse.ps1` — idempotent Web API script that created the 5 tables below; safe to re-run.
+- Theming: matches the sibling apps' house style (`powerapps-grand-rounds-audit-20260730`, and Team Leave Calendar). `--hg-gradient`/`--hg-gradient-page` tokens in `index.css` (brand-color wash: HG Dark Blue → HG Frost → HG Vivid Pink) applied to the header and page background in `App.tsx`, plus `src/assets/hg-infinity.webp` (HumanGood's infinity mark, copied from the Grand Rounds project) as a large translucent centered watermark behind all content.
+
+## Scope decisions (Phase 1)
+
+- No AI extraction — staff fill out a structured form directly (community, resident, notes), not a narrative to parse.
+- No PDF export / email distribution — an in-app report view is sufficient; Power BI connects directly to the Dataverse tables for cross-community trend analysis (fill velocity, which communities need support vs. self-sufficient).
+- `cr1e9_unitupdates` includes `ActualVacancyDate`/`ActualMoveInDate` (in addition to the Expected* fields) specifically so Power BI can compute clean time-to-fill durations.
+
+## Completed Steps
+
+- [x] Created 5 Dataverse tables + 2 relationships + auditing (see below)
+- [x] Step 1: Prerequisites validated (Node v24.18.0, Git 2.45.2)
+- [x] Step 4: Scaffold (npx degit microsoft/PowerAppsCodeApps/templates/vite)
+- [x] Step 5: Initialize (npx power-apps init) — power.config.json confirmed correct despite a benign libuv assertion crash message on process exit (known Windows npx teardown noise; the file writes fine beforehand)
+- [x] Step 6: Baseline deploy successful
+- [x] Step 7: Added Dataverse data source for all 5 tables (`npx power-apps add-data-source -a dataverse -t <table> -u https://orge3242d73.crm.dynamics.com` — the `-u/--org-url` flag is required, the command fails without it even though the environment is already set in power.config.json)
+- [x] Step 8: Implemented HomeDashboard, VacancyReportEntry, ReportPreview components + Navigation shell in App.tsx
+- [x] Step 9: Final build + deploy successful
+- [x] Seeded 2 test Communities (Maple Ridge Apartments, Cedar Court) for manual testing, then deleted them once real data was imported
+- [x] Imported real community roster (106 properties, org: HumanGood) from a SharePoint list CSV export via `scripts/import-communities-csv.ps1` — see "Real community roster" section below
+
+## Data Sources Connected
+
+- Dataverse: cr1e9_communities, cr1e9_vacancyreports, cr1e9_unitupdates, cr1e9_applicantupdatehistory (generated, not yet used in UI — Phase 2), cr1e9_reportconfiguration (generated, not yet used in UI — Phase 2 admin screen)
+- Generated entity set names differ from table logical names due to Dataverse's auto-pluralization: `cr1e9_communitieses`, `cr1e9_vacancyreportses`, `cr1e9_unitupdateses`, `cr1e9_applicantupdatehistories`, `cr1e9_reportconfigurations` — use these exact strings in `@odata.bind` paths (e.g. `/cr1e9_vacancyreportses(<guid>)`), not the table logical name.
+
+## Components Built
+
+- `src/hooks/useCommunities.ts`, `useVacancyReports.ts` (create + list by community), `useUnitUpdates.ts` (list by report + `createUnitRows` bulk insert, now also persists `cr1e9_actualvacancydate`), `usePriorityQueue.ts` (portfolio-wide: latest report per community + vacancy rate + vacancy aging, sorted descending — fetches all reports/units unfiltered and aggregates client-side rather than building a giant OR filter string; fine at current data volume, revisit if report/unit counts grow much larger)
+- Portfolio vacancy goal is now a real, editable Dataverse setting — see "Admin screen + access control" below (was a hardcoded constant briefly, superseded).
+- Vacancy aging: `VacancyReportEntry` now has a "Vacant Since" date input per unit row (maps to `cr1e9_actualvacancydate`, which existed in the schema since Phase 1 but was never exposed in the UI until now). Priority Queue computes avg/longest days vacant per community from it — only accurate for units where staff actually fill in the date, so older/incomplete rows show as "—". This is a snapshot of *current* open vacancies' age, not a historical time-to-fill trend across cycles — that kind of longitudinal "which properties fill fastest over time" analysis belongs in Power BI once enough `ActualVacancyDate`/`ActualMoveInDate` data accumulates, not something built natively into the app.
+- `src/types.ts` — picklist option lists derived from the generated model enums (`optionsFromEnum`), status category → color mapping, spec-defined sort order
+- **Admin screen + access control** — new `cr1e9_appsettings` Dataverse table (`scripts/setup-appsettings-table.ps1`, entity set `cr1e9_appsettingses`), single seeded "Global" row holding `cr1e9_portfoliovacancygoal` (currently 130). `AdminScreen.tsx` lets an admin edit that goal and, per-row, each community's Hopper Goal / Active / Default Report Recipients (the "app-owned" fields the CSV import script deliberately never touches). Access is gated two ways, and it's important these aren't confused for the same thing:
+  - **~~UI-level only~~ superseded**: the original `ADMIN_EMAILS`/`isAdmin()` hardcoded allow-list in `types.ts` has been removed and replaced with `useIsAdmin.ts`.
+  - **Real enforcement, now built on both sides**: user set up a "VM Admin" Dataverse Security Role in the work tenant (assigned in addition to a base "VM Staff" role — Dataverse roles are additive across multiple assignments) restricting Write on `cr1e9_appsettings` and the admin-only fields on `cr1e9_communities`. `useIsAdmin.ts` makes the UI check the real thing instead of a hardcoded list: it added `systemuser` and `role` as new Dataverse data sources (`npx power-apps add-data-source -a dataverse -t systemuser` / `-t role`), resolves the signed-in user's `systemuserid` from their UPN (`domainname` field), then queries `roles` filtered by `name eq 'APP - AH Vacancy Management Admin' and systemuserroles_association/any(u:u/systemuserid eq <guid>)`. Verified this exact query pattern live against dev (using "System Administrator" as a known-good role) before wiring it in — the generated Code App SDK has no `$expand` support, but a plain `$filter` string with an OData `any()` lambda works fine and doesn't need it. `App.tsx` now calls `useIsAdmin(currentUser?.email)` instead of the old synchronous `isAdmin()`.
+  - Note: the role name `'APP - AH Vacancy Management Admin'` is hardcoded in `useIsAdmin.ts` — if the user ever renames the security role in the work tenant, this needs to match.
+- **Admin report deletion** — `ReportPreview.tsx` shows a "Delete Report" button (admin-only, gated on the `isAdmin` prop passed from `App.tsx`'s `useIsAdmin`) with a native `confirm()` prompt. Deletion is explicit cascade from the app side, not relying on server-side relationship cascade config (which was never verified either way when the `cr1e9_vacancyreport_unitupdates` relationship was created): `deleteUnitsForReport()` (new export in `useUnitUpdates.ts`) deletes all child Unit Update rows first, then `deleteReport()` (new function in `useVacancyReports.ts`) deletes the report itself and refreshes the list.
+- `src/components/shared/Navigation.tsx`, `StatusBadge.tsx` (icon + color, not color-only, per accessibility requirement)
+- Report titles are auto-generated, not user-entered — `formatReportTitle()` in `VacancyReportEntry.tsx` produces `"{Community} - Vacancy Report - Week Of M/D/YYYY"` so names stay standardized across staff. The old free-text Report Title input was removed and replaced with a read-only preview of the generated name.
+- **User is now live in the work tenant** (real communities, real reports being entered there) while this local project folder (`power.config.json`) is still pointed at the dev environment `c2916e4a-...`. There is still no git repo for this project — the GitHub push discussed earlier stalled waiting on the user to create an empty repo and share the URL. Until that's resolved, code changes made here only deploy to the dev copy; getting a change into the work-tenant app requires the user to apply it manually or wait for the git-based sync path to exist. Flag this gap again if picking up new feature work.
+- `src/components/HomeDashboard/HomeDashboard.tsx` — two-pane layout: left sidebar with a search box + one button per property (was a dropdown, changed on request), right side shows KPI tiles computed client-side from the most recent report's units (open vacancies, NTV, active applicants, approved hoppers, hopper goal/gap, vacancy rate), recent reports list
+- `src/components/PriorityQueue/PriorityQueue.tsx` — portfolio-wide table of all communities ranked by current vacancy rate (highest first), using each community's most recent report. This is the descoped version of a much larger "Compliance Impact Barometer" feature the user described (multi-factor compliance file scoring, priority bands, work-queue assignment, overrides, 4 new tables, 3 Power Automate flows, 6 Power BI pages) — discussed and intentionally scaled down since the data foundation it needed (applicant as a first-class entity, document/verification checklist tracking, rent-ready/turn-percentage fields) doesn't exist yet. Full idea preserved here in case it resurfaces later.
+- `src/components/VacancyReportEntry/VacancyReportEntry.tsx` — report header fields + editable multi-row table (add/remove rows inline), Save Report always creates a **new** VacancyReport + its UnitUpdates (no edit-existing-report flow yet — matches "each save is a new snapshot" model, keeps full history naturally without a diff/reconcile step)
+- `src/components/ReportPreview/ReportPreview.tsx` — community + report selectors, primary table sorted by the spec's category order then unit number, summary-by-category count table
+- Theme: rebranded to HumanGood's actual brand palette (from `visual-brand-resources-02.pdf`) in `src/index.css`, replacing the earlier Catppuccin placeholder. Neutrals built from HG Shadow (#5c5c60)/HG Stone (#9fa0a1); accent pairs HG Frost (#67cfee, Primary/vivid) for dark mode with HG Dark Blue (#375d77, Secondary/"readability") for light mode — mirrors the brand kit's own primary-vivid-for-impact vs. secondary-darker-for-readability split. Status badge colors (success/warning/info/danger/purple) use the Secondary palette unchanged in both themes (Kelly Green #62b146, Marigold #faa736, Medium Blue #4a7ea5, Brick #dd5857, Purple #89578c) since that palette was purpose-built by HumanGood for readability.
+
+## Known limitation
+
+- Could not visually verify the UI in the Claude Browser pane — the local Power Apps play URL (`https://apps.powerapps.com/play/e/.../a/local?...`) requires interactive Microsoft sign-in, which Claude cannot complete. Verified via clean `npm run build` (TypeScript compiles) and manual code review of OData filters/`@odata.bind` paths against the generated models instead. User should click through the golden path themselves after deploy.
+
+## Real community roster
+
+- Source: SharePoint list on the user's actual company tenant (org: HumanGood, an affordable/senior housing nonprofit) — **not** accessible from this dev environment/tenant (`dchenit.net`), since Power Platform connectors are tenant-scoped and there's no cross-tenant guest access set up. The user exported the list to CSV themselves (`C:\Users\dchen\Downloads\AH Communities.csv`) and handed it over for a one-time import — this dev tenant now holds real employee PII (names/emails) and real property data, brought in deliberately by the data owner for build/test purposes.
+- `scripts/import-communities-csv.ps1` — repeatable upsert (matches on Community Code) so a fresh CSV export can be re-run any time the roster changes (new acquisition, role change) without duplicating rows or clobbering app-owned fields (`cr1e9_hoppergoal`, `cr1e9_active`, `cr1e9_defaultreportrecipients`).
+- Field mapping: `Title`→name, `Community Code`→code, `Administrator`→`cr1e9_propertymanager` (site administrator), `Regional Property Supervisor`→`cr1e9_regionalmanager`, `Director`→`cr1e9_director` (new column), `Asset Manager`→`cr1e9_assetmanager` (new column), `%23 of units`→`cr1e9_numberofunits` (new column, whole number).
+- Deliberately **not** imported (out of scope for vacancy tracking, available in the CSV if ever needed): Telephone, Fax, FYE Cycle, Funding Type, Owned/Managed, Maintenance/Accountant/Compliance Specialist/HR Coordinator/Resident Service Coordinator/Regional Services Supervisor/Regional Maintenance Supervisor contacts, structured address/Location JSON, Property ID, County. No "VP" column exists in the actual list (only up through Director) despite earlier discussion assuming one.
+- **True live sync (SharePoint trigger → Dataverse, auto-add on new list item) is deferred**, not built. Two blockers: (1) cross-tenant — this dev environment can't reach the company tenant's SharePoint at all; (2) even same-tenant, the list's People columns (Administrator, RPS, Director, Asset Manager are SharePoint `User`/`UserMulti` fields) don't map to Dataverse the same way plain text does, and building that mapping blind (without being able to inspect the real list/connector behavior from here) risks getting it wrong. Revisit once the solution is migrated to the company tenant, per the user's stated plan.
+
+## Status category rename + required-field markers (2026-08-18, requested by the Affordable Housing Team)
+
+- Renamed 3 of the 7 `cr1e9_currentstatuscategory` choice options in Dataverse via `UpdateOptionValue` (local/entity-scoped choice, so the payload needs `EntityLogicalName`/`AttributeLogicalName` instead of `OptionSetName`, plus a required `MergeLabels: true` flag not obvious from the action name) followed by `PublishXml`:
+  - `100000000`: "Rented / Approved" → **"Approved"**
+  - `100000001`: "Pending Approval / Compliance" → **"Compliance Approved"**
+  - `100000006`: "On Hold" → **"Compliance Review"**
+  - Unchanged: Eligibility File in Progress, Denied / Ineligible, Waitlist, No Applicant.
+- Regenerated the TS model (`npx power-apps add-data-source -a dataverse -t cr1e9_unitupdates -u <org-url> --non-interactive`) so `Cr1e9_unitupdatesesModel.ts` reflects the new labels, then updated the 8 hardcoded string references that keyed off the old labels: `STATUS_CATEGORY_SORT_ORDER` and `STATUS_CATEGORY_COLOR` in `src/types.ts`, the `cat === 'Rented / Approved'` skip-check in `src/hooks/usePriorityQueue.ts`, and the open-vacancy filter in `src/components/HomeDashboard/HomeDashboard.tsx`.
+- Added a red `RequiredMark` (`*`, `var(--danger)`) next to the labels of every field that's actually required to save: Community, Report Date (header), and per unit — Unit #, Vacancy Type, Status Category (matches the real `canSave` check and Dataverse `RequiredLevel: ApplicationRequired` columns). No other screen (Admin, etc.) has hard-required fields, so the marker wasn't added there.
+- Deployed to dev via `npm run build` + `npx power-apps push`.
+
+## Aging streak flag + Fast-Track Approvals callout (2026-08-18, requested by the Affordable Housing Team)
+
+- **Aging streak flag**: clarified "risk automation" ask - not an AI feature, just: if a unit has appeared as open (non-"Approved") on 3+ consecutive weekly reports for its community, flag it as high risk. Implemented as a computed value (`AGING_STREAK_THRESHOLD = 3` in `src/types.ts`), not by overwriting the manual per-unit Risk dropdown - keeps it always-accurate off report history instead of depending on staff remembering to update a field, and doesn't fight with staff's own judgment on the manual field.
+  - `src/hooks/useUnitStreaks.ts` - given a community's report list and a target report, walks backward up to 8 prior reports and counts each open unit's consecutive-open streak (matched by trimmed/lowercased unit number, since units aren't a persistent Dataverse entity - each weekly report creates fresh child rows).
+  - `ReportPreview.tsx` - new "Consecutive Reports Open" column per unit; 🚩 red badge at 3+.
+  - `usePriorityQueue.ts` / `PriorityQueue.tsx` - new "Aging 3+ Wks" column (count of flagged units) per community, computed off data the hook already fetches (no extra query), plus a third sort mode ("Aging risk").
+- **Fast-Track Approvals callout**: units whose Status Detail is "Submitted to Compliance" or "Corrections Requested" are pulled to a dedicated callout section at the top of the Priority Queue screen (`src/hooks/useFastTrackUnits.ts`), portfolio-wide, since these are expected to convert to Approved fastest and the team wanted them surfaced without digging through each community's report. Corrections Requested sorts above Submitted to Compliance (it's blocking on staff/applicant action; compliance is just waiting on the reviewer).
+- Deployed to dev via `npm run build` + `npx power-apps push`.
+
+## Next Steps (Phase 2+)
+
+- Hopper calculations formalized as a shared utility (currently inlined in HomeDashboard as simple proxies)
+- Risk/escalation features, Move-In Readiness section
+- Admin screen currently covers portfolio goal + community settings only; status mappings (`cr1e9_reportconfiguration`) still unmanaged in-app
+- ApplicantUpdateHistory audit trail UI
+- Point Power BI at the Dataverse tables directly (no export flow needed)
+- Once migrated to the company tenant: (1) build the SharePoint → Dataverse sync flow for the community roster (see "Real community roster" above), (2) replace the `ADMIN_EMAILS` allow-list with a real Dataverse Security Role for the Admin screen (see "Admin screen + access control" above)
+
+## Dataverse Tables Created
+
+- `cr1e9_communities` — cr1e9_name (primary, Community Name), cr1e9_communitycode, cr1e9_active (yes/no), cr1e9_hoppergoal (whole number), cr1e9_regionalmanager, cr1e9_propertymanager, cr1e9_defaultreportrecipients, cr1e9_director, cr1e9_assetmanager, cr1e9_numberofunits (whole number) — the last 3 added after initial creation to match the real SharePoint roster schema (see "Real community roster" below)
+- `cr1e9_vacancyreports` — cr1e9_name (primary, Report Title), cr1e9_community (lookup → Communities, required), cr1e9_reportdate (date, required), cr1e9_reportingperiod (choice: Weekly/Monthly/Ad Hoc), cr1e9_reportstatus (choice: Draft/Review Required/Approved, required), cr1e9_reviewedby, cr1e9_revieweddate, cr1e9_approvedby, cr1e9_approveddate, cr1e9_generalsupportneeded, cr1e9_generalchallenges, cr1e9_additionalnotes. Auditing enabled.
+- `cr1e9_unitupdates` — cr1e9_name (primary, Unit Number), cr1e9_vacancyreport (lookup → Vacancy Reports, required), cr1e9_vacancytype (choice: Vacant/NTV/Transfer/Unknown), cr1e9_ntvdate, cr1e9_expectedvacancydate, cr1e9_actualvacancydate, cr1e9_currentapplicantname, cr1e9_currentstatuscategory (choice: 7 primary categories), cr1e9_currentstatusdetail (choice: ~20 detailed statuses), cr1e9_approvaldate, cr1e9_approvedhopper (yes/no), cr1e9_nextstep, cr1e9_nextstepowner, cr1e9_nextstepduedate, cr1e9_supportneeded, cr1e9_escalationrequired (yes/no), cr1e9_escalationowner, cr1e9_expectedmoveindate, cr1e9_actualmoveindate, cr1e9_turnstatus, cr1e9_expectedturncompletiondate, cr1e9_turnchallenges, cr1e9_risklevel (choice: Low/Medium/High/Critical), cr1e9_riskowner, cr1e9_riskresolutiondate, cr1e9_previousoffercount, cr1e9_previousturndowncount, cr1e9_previousturndownreasons, cr1e9_currentapplicantconcerns, cr1e9_additionalnotes, cr1e9_displayorder. Auditing enabled.
+- `cr1e9_applicantupdatehistory` — cr1e9_name (primary, Applicant Name), cr1e9_unitupdate (lookup → Unit Updates, required), cr1e9_updatedate, cr1e9_status, cr1e9_updatedetails
+- `cr1e9_reportconfiguration` — cr1e9_name (primary, Status Name), cr1e9_summarycategory, cr1e9_displaylabel, cr1e9_iconname, cr1e9_displayorder, cr1e9_active
+- `cr1e9_appsettings` — cr1e9_name (primary), cr1e9_portfoliovacancygoal (whole number). Single "Global" row, created/seeded via `scripts/setup-appsettings-table.ps1`. Entity set name: `cr1e9_appsettingses`.
+- Dataverse org URL: https://orge3242d73.crm.dynamics.com
+- Org-level auditing (`organizations.isauditenabled`) was OFF for this environment and was turned ON to support table-level auditing on VacancyReports/UnitUpdates — affects the whole environment, not just this app.
