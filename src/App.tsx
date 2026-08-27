@@ -19,6 +19,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('new-report');
   const [theme, setTheme] = useState<'dark' | 'light'>(getInitialTheme);
   const [previewTarget, setPreviewTarget] = useState<{ communityId: string; reportId: string } | undefined>();
+  const [editTarget, setEditTarget] = useState<{ communityId: string; reportId: string } | undefined>();
 
   const { communities, loading: communitiesLoading, updateCommunity } = useCommunities();
   const { currentUser } = useCurrentUser();
@@ -38,7 +39,19 @@ export default function App() {
 
   function goToPreview(communityId: string, reportId: string) {
     setPreviewTarget({ communityId, reportId });
+    setEditTarget(undefined);
     setActiveTab('preview');
+  }
+
+  function goToEdit(communityId: string, reportId: string) {
+    setEditTarget({ communityId, reportId });
+    setActiveTab('new-report');
+  }
+
+  // Clicking the New Report nav tab directly (not via "Edit This Report") always starts blank.
+  function handleTabChange(tab: Tab) {
+    if (tab === 'new-report') setEditTarget(undefined);
+    setActiveTab(tab);
   }
 
   return (
@@ -76,7 +89,7 @@ export default function App() {
         </button>
       </header>
 
-      <Navigation active={activeTab} onChange={setActiveTab} showAdmin={userIsAdmin} />
+      <Navigation active={activeTab} onChange={handleTabChange} showAdmin={userIsAdmin} />
 
       <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {activeTab === 'dashboard' && (
@@ -86,7 +99,13 @@ export default function App() {
           <PriorityQueue communities={communities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} />
         )}
         {activeTab === 'new-report' && (
-          <VacancyReportEntry communities={communities} communitiesLoading={communitiesLoading} onSaved={goToPreview} />
+          <VacancyReportEntry
+            communities={communities}
+            communitiesLoading={communitiesLoading}
+            onSaved={goToPreview}
+            editReportId={editTarget?.reportId}
+            editCommunityId={editTarget?.communityId}
+          />
         )}
         {activeTab === 'preview' && (
           <ReportPreview
@@ -95,6 +114,7 @@ export default function App() {
             initialCommunityId={previewTarget?.communityId}
             initialReportId={previewTarget?.reportId}
             isAdmin={userIsAdmin}
+            onEditReport={goToEdit}
           />
         )}
         {activeTab === 'admin' && userIsAdmin && (

@@ -89,5 +89,13 @@ export function useVacancyReports(communityId?: string) {
     await refresh();
   }, [refresh]);
 
-  return { reports, loading, error, refresh, createReport, deleteReport };
+  // Only notes are editable on an existing report - Community/Report Date/Title are fixed once
+  // created (changing them would really mean "a different report"), see VacancyReportEntry's
+  // edit mode.
+  const updateReportNotes = useCallback(async (reportId: string, notes: string): Promise<void> => {
+    const result = await Cr1e9_vacancyreportsesService.update(reportId, { cr1e9_additionalnotes: notes || undefined } as any);
+    if (result.error) throw new Error(result.error.message ?? 'Failed to update report notes');
+  }, []);
+
+  return { reports, loading, error, refresh, createReport, deleteReport, updateReportNotes };
 }

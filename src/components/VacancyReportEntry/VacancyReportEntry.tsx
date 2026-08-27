@@ -1,16 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Community } from '../../hooks/useCommunities';
 import { useVacancyReports } from '../../hooks/useVacancyReports';
-import { createUnitRows } from '../../hooks/useUnitUpdates';
+import { useUnitUpdates, createUnitRows, updateUnitRow, deleteUnit, toUnitRowDraft } from '../../hooks/useUnitUpdates';
 import {
   VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, STATUS_DETAIL_OPTIONS, RISK_LEVEL_OPTIONS,
-  REPORTING_PERIOD_OPTIONS, emptyUnitRow, type UnitRowDraft,
+  REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, emptyUnitRow, type UnitRowDraft,
 } from '../../types';
 
 interface Props {
   communities: Community[];
   communitiesLoading: boolean;
   onSaved: (communityId: string, reportId: string) => void;
+  /** When set, edits that existing report instead of starting a blank new one - see ReportPreview's "Edit This Report" button, only offered for a community's latest report. */
+  editReportId?: string;
+  editCommunityId?: string;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -42,18 +45,50 @@ function Field({ label, children, span, required }: { label: string; children: R
   );
 }
 
-export function VacancyReportEntry({ communities, communitiesLoading, onSaved }: Props) {
-  const [communityId, setCommunityId] = useState('');
+export function VacancyReportEntry({ communities, communitiesLoading, onSaved, editReportId, editCommunityId }: Props) {
+  const isEditMode = !!editReportId;
+  const [communityId, setCommunityId] = useState(editCommunityId ?? '');
   const [reportDate, setReportDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [rows, setRows] = useState<UnitRowDraft[]>([emptyUnitRow()]);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [originalUnitIds, setOriginalUnitIds] = useState<string[]>([]);
+  const [loadedEditReportId, setLoadedEditReportId] = useState<string | undefined>(undefined);
 
-  const { createReport } = useVacancyReports(communityId || undefined);
+  const { createReport, updateReportNotes, reports } = useVacancyReports(communityId || undefined);
+  const { units: existingUnits, loading: existingUnitsLoading } = useUnitUpdates(editReportId);
   const selectedCommunity = communities.find(c => c.id === communityId);
+  const editingReport = isEditMode ? reports.find(r => r.id === editReportId) : undefined;
   const generatedTitle = selectedCommunity && reportDate ? formatReportTitle(selectedCommunity.name, reportDate) : '';
+  const isReady = !isEditMode || loadedEditReportId === editReportId;
+
+  // Seed the form from the existing report once its data has loaded - guarded so it only runs
+  // once per editReportId, not on every refresh (which would clobber in-progress edits).
+  useEffect(() => {
+    if (!isEditMode || !editReportId) return;
+    if (loadedEditReportId === editReportId) return;
+    if (!editingReport || existingUnitsLoading) return;
+    setCommunityId(editCommunityId ?? '');
+    setReportDate(editingReport.reportDate);
+    setNotes(editingReport.notes ?? '');
+    const drafts = existingUnits.map(toUnitRowDraft);
+    setRows(drafts.length ? drafts : [emptyUnitRow()]);
+    setOriginalUnitIds(existingUnits.map(u => u.id));
+    setLoadedEditReportId(editReportId);
+  }, [isEditMode, editReportId, editCommunityId, editingReport, existingUnits, existingUnitsLoading, loadedEditReportId]);
+
+  // Leaving edit mode (editReportId cleared, e.g. via the New Report nav tab) resets to a blank form.
+  useEffect(() => {
+    if (editReportId) return;
+    setCommunityId(editCommunityId ?? '');
+    setReportDate(new Date().toISOString().split('T')[0]);
+    setRows([emptyUnitRow()]);
+    setNotes('');
+    setOriginalUnitIds([]);
+    setLoadedEditReportId(undefined);
+  }, [editReportId, editCommunityId]);
 
   function updateRow(tempId: string, patch: Partial<UnitRowDraft>) {
     setRows(prev => prev.map(r => r.tempId === tempId ? { ...r, ...patch } : r));
@@ -76,12 +111,26 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved }:
     setSaveSuccess(false);
     try {
       const validRows = rows.filter(r => r.unitNumber.trim());
-      const reportId = await createReport({ communityId, title: generatedTitle, reportDate, reportingPeriod: WEEKLY_REPORTING_PERIOD, notes: notes.trim() || undefined });
-      await createUnitRows(reportId, validRows);
-      setSaveSuccess(true);
-      setRows([emptyUnitRow()]);
-      setNotes('');
-      onSaved(communityId, reportId);
+      if (isEditMode && editReportId) {
+        for (const row of validRows) {
+          if (row.unitId) await updateUnitRow(row.unitId, row);
+          else await createUnitRows(editReportId, [row]);
+        }
+        const keptIds = new Set(validRows.map(r => r.unitId).filter((id): id is string => !!id));
+        for (const id of originalUnitIds) {
+          if (!keptIds.has(id)) await deleteUnit(id);
+        }
+        await updateReportNotes(editReportId, notes.trim());
+        setSaveSuccess(true);
+        onSaved(communityId, editReportId);
+      } else {
+        const reportId = await createReport({ communityId, title: generatedTitle, reportDate, reportingPeriod: WEEKLY_REPORTING_PERIOD, notes: notes.trim() || undefined });
+        await createUnitRows(reportId, validRows);
+        setSaveSuccess(true);
+        setRows([emptyUnitRow()]);
+        setNotes('');
+        onSaved(communityId, reportId);
+      }
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -89,21 +138,44 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved }:
     }
   }
 
+  if (!isReady) {
+    return (
+      <div style={{ padding: 20 }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>Loading report…</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: 20, overflowY: 'auto', height: '100%' }}>
-      <h2 style={{ color: 'var(--text-primary)', fontSize: 18, marginTop: 0, marginBottom: 16 }}>New Vacancy Report</h2>
+      <h2 style={{ color: 'var(--text-primary)', fontSize: 18, marginTop: 0, marginBottom: isEditMode ? 4 : 16 }}>
+        {isEditMode ? `Edit Report${selectedCommunity ? ` — ${selectedCommunity.name}` : ''}` : 'New Vacancy Report'}
+      </h2>
+      {isEditMode && (
+        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 0, marginBottom: 16 }}>
+          Community and Report Date can't be changed here. Editable only until the next weekly report is created for this community.
+        </p>
+      )}
 
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
         <div style={{ minWidth: 200 }}>
-          <label style={labelStyle}>Community<RequiredMark /></label>
-          <select style={inputStyle} value={communityId} onChange={e => setCommunityId(e.target.value)}>
-            <option value="">{communitiesLoading ? 'Loading…' : 'Select…'}</option>
-            {communities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <label style={labelStyle}>Community{!isEditMode && <RequiredMark />}</label>
+          {isEditMode ? (
+            <div style={{ ...inputStyle, backgroundColor: 'var(--bg-subtle)' }}>{selectedCommunity?.name ?? '—'}</div>
+          ) : (
+            <select style={inputStyle} value={communityId} onChange={e => setCommunityId(e.target.value)}>
+              <option value="">{communitiesLoading ? 'Loading…' : 'Select…'}</option>
+              {communities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
         </div>
         <div style={{ minWidth: 160 }}>
-          <label style={labelStyle}>Report Date<RequiredMark /></label>
-          <input type="date" style={inputStyle} value={reportDate} onChange={e => setReportDate(e.target.value)} />
+          <label style={labelStyle}>Report Date{!isEditMode && <RequiredMark />}</label>
+          {isEditMode ? (
+            <div style={{ ...inputStyle, backgroundColor: 'var(--bg-subtle)' }}>{reportDate}</div>
+          ) : (
+            <input type="date" style={inputStyle} value={reportDate} onChange={e => setReportDate(e.target.value)} />
+          )}
         </div>
         <div style={{ minWidth: 260, flex: 1 }}>
           <label style={labelStyle}>Report Title</label>
@@ -167,6 +239,12 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved }:
                   {RISK_LEVEL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </Field>
+              <Field label="Turn Status">
+                <select style={inputStyle} value={row.turnStatus ?? ''} onChange={e => updateRow(row.tempId, { turnStatus: e.target.value ? Number(e.target.value) : undefined })}>
+                  <option value="">—</option>
+                  {TURN_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </Field>
 
               <Field label="Status Category" required>
                 <select style={inputStyle} value={row.currentStatusCategory} onChange={e => updateRow(row.tempId, { currentStatusCategory: Number(e.target.value) })}>
@@ -213,7 +291,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved }:
         <button onClick={handleSave} disabled={!canSave || saving} style={{
           backgroundColor: 'var(--accent)', color: 'var(--accent-fg)', border: 'none', borderRadius: 6,
           padding: '8px 18px', fontSize: 14, fontWeight: 600, opacity: (!canSave || saving) ? 0.6 : 1,
-        }}>{saving ? 'Saving…' : 'Save Report'}</button>
+        }}>{saving ? 'Saving…' : isEditMode ? 'Save Changes' : 'Save Report'}</button>
 
         {saveError && <span style={{ color: 'var(--danger)', fontSize: 14 }}>⚠ {saveError}</span>}
         {saveSuccess && !saveError && <span style={{ color: 'var(--success)', fontSize: 14 }}>✓ Saved</span>}

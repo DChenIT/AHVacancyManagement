@@ -39,6 +39,7 @@ interface Props {
   initialCommunityId?: string;
   initialReportId?: string;
   isAdmin?: boolean;
+  onEditReport?: (communityId: string, reportId: string) => void;
 }
 
 const selectStyle: React.CSSProperties = {
@@ -46,7 +47,7 @@ const selectStyle: React.CSSProperties = {
   borderRadius: 6, padding: '8px 10px', fontSize: 15, minWidth: 220,
 };
 
-export function ReportPreview({ communities, communitiesLoading, initialCommunityId, initialReportId, isAdmin }: Props) {
+export function ReportPreview({ communities, communitiesLoading, initialCommunityId, initialReportId, isAdmin, onEditReport }: Props) {
   const [communityId, setCommunityId] = useState(initialCommunityId ?? '');
   const [reportId, setReportId] = useState(initialReportId ?? '');
   const [deleting, setDeleting] = useState(false);
@@ -60,6 +61,10 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
   const report = reports.find(r => r.id === reportId) ?? reports[0];
   const { units, loading: unitsLoading } = useUnitUpdates(report?.id);
   const { streaks } = useUnitStreaks(reports, report?.id);
+  // Only the community's most recent report is editable - once a newer one exists, older
+  // reports are locked so the "each report is a fixed weekly snapshot" history stays reliable
+  // (the aging-flag streak fallback and Fast-Track callout both read that history).
+  const isLatestReport = !!report && reports[0]?.id === report.id;
 
   async function handleDelete() {
     if (!report) return;
@@ -114,6 +119,12 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
           <option value="">{reportsLoading ? 'Loading…' : 'Select a report…'}</option>
           {reports.map(r => <option key={r.id} value={r.id}>{r.title} — {r.reportDate}</option>)}
         </select>
+        {report && isLatestReport && onEditReport && (
+          <button onClick={() => onEditReport(communityId, report.id)} style={{
+            background: 'none', border: '1px solid var(--accent)', borderRadius: 6, color: 'var(--accent)',
+            padding: '7px 14px', fontSize: 14, fontWeight: 600,
+          }}>✏️ Edit This Report</button>
+        )}
         {report && (
           <button onClick={() => window.print()} style={{
             background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)',
@@ -121,6 +132,11 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
           }}>🖨️ Print</button>
         )}
       </div>
+      {report && !isLatestReport && (
+        <p className="no-print" style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: -14, marginBottom: 20 }}>
+          This is an older report and can't be edited — only a community's most recent report is editable.
+        </p>
+      )}
 
       {!report && (
         <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>Select a community and a report to preview.</p>

@@ -18,6 +18,7 @@ export interface UnitUpdate {
   expectedVacancyDate?: string;
   expectedMoveInDate?: string;
   ntvDate?: string;
+  turnStatus?: number;
   subsidized?: boolean;
   comment?: string;
 }
@@ -27,7 +28,7 @@ const UNIT_SELECT = [
   'cr1e9_currentapplicantname', 'cr1e9_currentstatuscategory', 'cr1e9_currentstatusdetail',
   'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_risklevel', 'cr1e9_approvedhopper',
   'cr1e9_actualvacancydate', 'cr1e9_expectedvacancydate', 'cr1e9_expectedmoveindate', 'cr1e9_ntvdate',
-  'cr1e9_subsidized', 'cr1e9_additionalnotes',
+  'cr1e9_turnstatus', 'cr1e9_subsidized', 'cr1e9_additionalnotes',
 ];
 
 function mapUnit(raw: {
@@ -46,6 +47,7 @@ function mapUnit(raw: {
   cr1e9_expectedvacancydate?: string;
   cr1e9_expectedmoveindate?: string;
   cr1e9_ntvdate?: string;
+  cr1e9_turnstatus?: number;
   cr1e9_subsidized?: boolean;
   cr1e9_additionalnotes?: string;
 }): UnitUpdate {
@@ -65,8 +67,52 @@ function mapUnit(raw: {
     expectedVacancyDate: raw.cr1e9_expectedvacancydate ? raw.cr1e9_expectedvacancydate.split('T')[0] : undefined,
     expectedMoveInDate: raw.cr1e9_expectedmoveindate ? raw.cr1e9_expectedmoveindate.split('T')[0] : undefined,
     ntvDate: raw.cr1e9_ntvdate ? raw.cr1e9_ntvdate.split('T')[0] : undefined,
+    turnStatus: raw.cr1e9_turnstatus,
     subsidized: raw.cr1e9_subsidized,
     comment: raw.cr1e9_additionalnotes || undefined,
+  };
+}
+
+/** Converts a loaded Dataverse unit back into the form's draft shape, for editing an existing report. */
+export function toUnitRowDraft(unit: UnitUpdate): UnitRowDraft {
+  return {
+    unitId: unit.id,
+    tempId: unit.id,
+    unitNumber: unit.unitNumber,
+    vacancyType: unit.vacancyType,
+    currentApplicantName: unit.currentApplicantName ?? '',
+    currentStatusCategory: unit.currentStatusCategory,
+    currentStatusDetail: unit.currentStatusDetail,
+    nextStep: unit.nextStep ?? '',
+    nextStepDueDate: unit.nextStepDueDate ?? '',
+    riskLevel: unit.riskLevel,
+    actualVacancyDate: unit.actualVacancyDate ?? '',
+    expectedVacancyDate: unit.expectedVacancyDate ?? '',
+    expectedMoveInDate: unit.expectedMoveInDate ?? '',
+    ntvDate: unit.ntvDate ?? '',
+    turnStatus: unit.turnStatus,
+    subsidized: unit.subsidized,
+    comment: unit.comment ?? '',
+  };
+}
+
+function unitRowPayload(row: UnitRowDraft) {
+  return {
+    cr1e9_name: row.unitNumber,
+    cr1e9_vacancytype: row.vacancyType as any,
+    cr1e9_currentapplicantname: row.currentApplicantName || undefined,
+    cr1e9_currentstatuscategory: row.currentStatusCategory as any,
+    cr1e9_currentstatusdetail: row.currentStatusDetail as any,
+    cr1e9_nextstep: row.nextStep || undefined,
+    cr1e9_nextstepduedate: row.nextStepDueDate || undefined,
+    cr1e9_risklevel: row.riskLevel as any,
+    cr1e9_actualvacancydate: row.actualVacancyDate || undefined,
+    cr1e9_expectedvacancydate: row.expectedVacancyDate || undefined,
+    cr1e9_expectedmoveindate: row.expectedMoveInDate || undefined,
+    cr1e9_ntvdate: row.ntvDate || undefined,
+    cr1e9_turnstatus: row.turnStatus as any,
+    cr1e9_subsidized: row.subsidized,
+    cr1e9_additionalnotes: row.comment || undefined,
   };
 }
 
@@ -119,22 +165,18 @@ export async function deleteUnitsForReport(vacancyReportId: string): Promise<voi
 export async function createUnitRows(vacancyReportId: string, rows: UnitRowDraft[]): Promise<void> {
   for (const row of rows) {
     const result = await Cr1e9_unitupdatesesService.create({
-      cr1e9_name: row.unitNumber,
-      cr1e9_vacancytype: row.vacancyType as any,
-      cr1e9_currentapplicantname: row.currentApplicantName || undefined,
-      cr1e9_currentstatuscategory: row.currentStatusCategory as any,
-      cr1e9_currentstatusdetail: row.currentStatusDetail as any,
-      cr1e9_nextstep: row.nextStep || undefined,
-      cr1e9_nextstepduedate: row.nextStepDueDate || undefined,
-      cr1e9_risklevel: row.riskLevel as any,
-      cr1e9_actualvacancydate: row.actualVacancyDate || undefined,
-      cr1e9_expectedvacancydate: row.expectedVacancyDate || undefined,
-      cr1e9_expectedmoveindate: row.expectedMoveInDate || undefined,
-      cr1e9_ntvdate: row.ntvDate || undefined,
-      cr1e9_subsidized: row.subsidized,
-      cr1e9_additionalnotes: row.comment || undefined,
+      ...unitRowPayload(row),
       'cr1e9_vacancyreport@odata.bind': `/cr1e9_vacancyreportses(${vacancyReportId})`,
     } as any);
     if (result.error) throw new Error(result.error.message ?? `Failed to create unit ${row.unitNumber}`);
   }
+}
+
+export async function updateUnitRow(unitId: string, row: UnitRowDraft): Promise<void> {
+  const result = await Cr1e9_unitupdatesesService.update(unitId, unitRowPayload(row) as any);
+  if (result.error) throw new Error(result.error.message ?? `Failed to update unit ${row.unitNumber}`);
+}
+
+export async function deleteUnit(unitId: string): Promise<void> {
+  await Cr1e9_unitupdatesesService.delete(unitId);
 }

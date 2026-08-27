@@ -3,6 +3,7 @@ import {
   Cr1e9_unitupdatesescr1e9_currentstatusdetail,
   Cr1e9_unitupdatesescr1e9_risklevel,
   Cr1e9_unitupdatesescr1e9_vacancytype,
+  Cr1e9_unitupdatesescr1e9_turnstatus,
 } from './generated/models/Cr1e9_unitupdatesesModel';
 import {
   Cr1e9_vacancyreportsescr1e9_reportingperiod,
@@ -19,11 +20,13 @@ export const STATUS_DETAIL_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_cu
 export const RISK_LEVEL_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_risklevel);
 export const REPORTING_PERIOD_OPTIONS = optionsFromEnum(Cr1e9_vacancyreportsescr1e9_reportingperiod);
 export const REPORT_STATUS_OPTIONS = optionsFromEnum(Cr1e9_vacancyreportsescr1e9_reportstatus);
+export const TURN_STATUS_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_turnstatus);
 
 export const STATUS_CATEGORY_LABEL = Cr1e9_unitupdatesescr1e9_currentstatuscategory;
 export const STATUS_DETAIL_LABEL = Cr1e9_unitupdatesescr1e9_currentstatusdetail;
 export const RISK_LEVEL_LABEL = Cr1e9_unitupdatesescr1e9_risklevel;
 export const VACANCY_TYPE_LABEL = Cr1e9_unitupdatesescr1e9_vacancytype;
+export const TURN_STATUS_LABEL = Cr1e9_unitupdatesescr1e9_turnstatus;
 
 // Report table + summary sort order (spec section 9)
 export const STATUS_CATEGORY_SORT_ORDER = [
@@ -60,6 +63,8 @@ export const STATUS_CATEGORY_COLOR: Record<string, StatusColor> = {
 };
 
 export interface UnitRowDraft {
+  /** Set only when this row was loaded from an existing Dataverse record (edit mode) - present means "update", absent means "create" on save. */
+  unitId?: string;
   tempId: string;
   unitNumber: string;
   vacancyType: number;
@@ -73,6 +78,7 @@ export interface UnitRowDraft {
   expectedVacancyDate: string;
   expectedMoveInDate: string;
   ntvDate: string;
+  turnStatus?: number;
   subsidized?: boolean;
   comment: string;
 }
@@ -92,6 +98,7 @@ export function emptyUnitRow(): UnitRowDraft {
     expectedVacancyDate: '',
     expectedMoveInDate: '',
     ntvDate: '',
+    turnStatus: undefined,
     subsidized: undefined,
     comment: '',
   };
