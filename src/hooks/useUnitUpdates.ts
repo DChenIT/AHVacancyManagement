@@ -28,7 +28,7 @@ const UNIT_SELECT = [
   'cr1e9_currentapplicantname', 'cr1e9_currentstatuscategory', 'cr1e9_currentstatusdetail',
   'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_risklevel', 'cr1e9_approvedhopper',
   'cr1e9_actualvacancydate', 'cr1e9_expectedvacancydate', 'cr1e9_expectedmoveindate', 'cr1e9_ntvdate',
-  'cr1e9_turnstatus', 'cr1e9_subsidized', 'cr1e9_additionalnotes',
+  'cr1e9_turnreadiness', 'cr1e9_subsidized', 'cr1e9_additionalnotes',
 ];
 
 function mapUnit(raw: {
@@ -47,7 +47,7 @@ function mapUnit(raw: {
   cr1e9_expectedvacancydate?: string;
   cr1e9_expectedmoveindate?: string;
   cr1e9_ntvdate?: string;
-  cr1e9_turnstatus?: number;
+  cr1e9_turnreadiness?: number;
   cr1e9_subsidized?: boolean;
   cr1e9_additionalnotes?: string;
 }): UnitUpdate {
@@ -67,7 +67,7 @@ function mapUnit(raw: {
     expectedVacancyDate: raw.cr1e9_expectedvacancydate ? raw.cr1e9_expectedvacancydate.split('T')[0] : undefined,
     expectedMoveInDate: raw.cr1e9_expectedmoveindate ? raw.cr1e9_expectedmoveindate.split('T')[0] : undefined,
     ntvDate: raw.cr1e9_ntvdate ? raw.cr1e9_ntvdate.split('T')[0] : undefined,
-    turnStatus: raw.cr1e9_turnstatus,
+    turnStatus: raw.cr1e9_turnreadiness,
     subsidized: raw.cr1e9_subsidized,
     comment: raw.cr1e9_additionalnotes || undefined,
   };
@@ -110,7 +110,7 @@ function unitRowPayload(row: UnitRowDraft) {
     cr1e9_expectedvacancydate: row.expectedVacancyDate || undefined,
     cr1e9_expectedmoveindate: row.expectedMoveInDate || undefined,
     cr1e9_ntvdate: row.ntvDate || undefined,
-    cr1e9_turnstatus: row.turnStatus as any,
+    cr1e9_turnreadiness: row.turnStatus as any,
     cr1e9_subsidized: row.subsidized,
     cr1e9_additionalnotes: row.comment || undefined,
   };
