@@ -138,6 +138,9 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved }:
               <Field label="Vacant Since">
                 <input type="date" style={inputStyle} value={row.actualVacancyDate} onChange={e => updateRow(row.tempId, { actualVacancyDate: e.target.value })} />
               </Field>
+              <Field label="NTV Date">
+                <input type="date" style={inputStyle} value={row.ntvDate} onChange={e => updateRow(row.tempId, { ntvDate: e.target.value })} />
+              </Field>
               <Field label="Expected Move-Out">
                 <input type="date" style={inputStyle} value={row.expectedVacancyDate} onChange={e => updateRow(row.tempId, { expectedVacancyDate: e.target.value })} />
               </Field>

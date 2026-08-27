@@ -151,7 +151,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport }:
             <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 860 }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                  {['#', 'Community', 'Vacancy Rate', 'Open / Total Units', 'Avg Days Vacant', 'Longest Vacant', 'Aging 3+ Wks', 'Latest Report'].map(h => (
+                  {['#', 'Community', 'Vacancy Rate', 'Open / Total Units', 'Avg Days Vacant', 'Longest Vacant', 'Aging 30+ Days', 'Latest Report'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                   ))}
                 </tr>
@@ -205,7 +205,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport }:
 
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 12 }}>
             "Avg/longest days vacant" only counts units where staff entered a Vacant Since date on the report — it'll be blank for older reports and any unit missing that field.
-            "Aging 3+ Wks" is automatic and doesn't depend on that field: it counts units (matched by Unit #) that have shown up as open on 3 or more consecutive reports in a row.
+            "Aging 30+ Days" counts units vacant 30 or more days, using the same Vacant Since date where it's filled in — and for the rows where it isn't, falls back to counting units open on 3+ consecutive reports in a row, so a unit doesn't slip through just because that date was never entered.
             {communitiesWithoutReport > 0 && (
               <> {communitiesWithoutReport} {communitiesWithoutReport === 1 ? 'community has' : 'communities have'} no vacancy report yet and {communitiesWithoutReport === 1 ? "isn't" : "aren't"} included above.</>
             )}

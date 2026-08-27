@@ -4,11 +4,23 @@ import { useVacancyReports } from '../../hooks/useVacancyReports';
 import { useUnitUpdates, deleteUnitsForReport } from '../../hooks/useUnitUpdates';
 import { useUnitStreaks } from '../../hooks/useUnitStreaks';
 import { StatusBadge } from '../shared/StatusBadge';
-import { STATUS_CATEGORY_LABEL, STATUS_CATEGORY_SORT_ORDER, REPORT_STATUS_OPTIONS, AGING_STREAK_THRESHOLD } from '../../types';
+import { STATUS_CATEGORY_LABEL, STATUS_CATEGORY_SORT_ORDER, REPORT_STATUS_OPTIONS, AGING_DAYS_THRESHOLD, AGING_STREAK_THRESHOLD } from '../../types';
 
-function AgingFlag({ weeks }: { weeks: number }) {
-  if (weeks < AGING_STREAK_THRESHOLD) {
-    return <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{weeks} {weeks === 1 ? 'report' : 'reports'}</span>;
+function daysBetween(from: string, to: string): number {
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.round((new Date(to).getTime() - new Date(from).getTime()) / msPerDay);
+}
+
+// Prefers a real day-count (matches the ">30 days" threshold the team asked for) when the unit
+// has a Vacant Since date on file; falls back to the consecutive-report streak when it doesn't,
+// so the flag still works for rows where that date was never filled in.
+function AgingFlag({ daysVacant, streak }: { daysVacant?: number; streak: number }) {
+  const flagged = daysVacant !== undefined ? daysVacant >= AGING_DAYS_THRESHOLD : streak >= AGING_STREAK_THRESHOLD;
+  const label = daysVacant !== undefined
+    ? `${daysVacant} ${daysVacant === 1 ? 'day' : 'days'} vacant`
+    : `${streak} ${streak === 1 ? 'report' : 'reports'} open`;
+  if (!flagged) {
+    return <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{label}</span>;
   }
   return (
     <span style={{
@@ -16,7 +28,7 @@ function AgingFlag({ weeks }: { weeks: number }) {
       backgroundColor: 'var(--danger-bg)', color: 'var(--danger)',
       borderRadius: 12, padding: '3px 10px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
     }}>
-      <span aria-hidden="true">🚩</span>{weeks} reports — High Risk
+      <span aria-hidden="true">🚩</span>{label} — High Risk
     </span>
   );
 }
@@ -93,7 +105,7 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
 
   return (
     <div style={{ padding: 20, overflowY: 'auto', height: '100%' }}>
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
+      <div className="no-print" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
         <select style={selectStyle} value={communityId} onChange={e => { setCommunityId(e.target.value); setReportId(''); }}>
           <option value="">{communitiesLoading ? 'Loading…' : 'Select a community…'}</option>
           {communities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -102,6 +114,12 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
           <option value="">{reportsLoading ? 'Loading…' : 'Select a report…'}</option>
           {reports.map(r => <option key={r.id} value={r.id}>{r.title} — {r.reportDate}</option>)}
         </select>
+        {report && (
+          <button onClick={() => window.print()} style={{
+            background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)',
+            padding: '7px 14px', fontSize: 14,
+          }}>🖨️ Print</button>
+        )}
       </div>
 
       {!report && (
@@ -117,7 +135,7 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>Vacancy Update</div>
               {isAdmin && (
-                <button onClick={handleDelete} disabled={deleting} style={{
+                <button className="no-print" onClick={handleDelete} disabled={deleting} style={{
                   background: 'none', border: '1px solid var(--danger)', borderRadius: 6, color: 'var(--danger)',
                   padding: '5px 10px', fontSize: 13, opacity: deleting ? 0.6 : 1, flexShrink: 0,
                 }}>{deleting ? 'Deleting…' : 'Delete Report'}</button>
@@ -143,7 +161,7 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
             <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 640 }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                  {['Unit', 'Applicant', 'Status', 'Consecutive Reports Open', 'Next Step / Outstanding Items'].map(h => (
+                  {['Unit', 'Applicant', 'Status', 'Aging', 'Next Step / Outstanding Items'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                   ))}
                 </tr>
@@ -152,7 +170,8 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
                 {sortedUnits.map(u => {
                   const category = STATUS_CATEGORY_LABEL[u.currentStatusCategory as keyof typeof STATUS_CATEGORY_LABEL] ?? 'Unknown';
                   const isOpen = category !== 'Approved';
-                  const weeks = streaks[u.unitNumber.trim().toLowerCase()] ?? 1;
+                  const streak = streaks[u.unitNumber.trim().toLowerCase()] ?? 1;
+                  const daysVacant = u.actualVacancyDate ? Math.max(0, daysBetween(u.actualVacancyDate, report.reportDate)) : undefined;
                   return (
                     <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontSize: 14 }}>{u.unitNumber}</td>
@@ -161,7 +180,7 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
                         <StatusBadge categoryLabel={category} />
                       </td>
                       <td style={{ padding: '8px 10px' }}>
-                        {isOpen ? <AgingFlag weeks={weeks} /> : <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>—</span>}
+                        {isOpen ? <AgingFlag daysVacant={daysVacant} streak={streak} /> : <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>—</span>}
                       </td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>
                         {u.nextStep || '—'}{u.nextStepDueDate ? ` (due ${u.nextStepDueDate})` : ''}

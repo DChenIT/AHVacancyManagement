@@ -96,7 +96,7 @@ One folder per screen, matching the five navigation tabs:
 | Folder | Tab | Notes |
 |---|---|---|
 | `HomeDashboard/` | Dashboard | Searchable property sidebar + KPI tiles (open vacancies, NTV, active applicants, approved hoppers, hopper goal/gap, vacancy rate) computed client-side from the selected community's most recent report |
-| `PriorityQueue/` | Priority Queue | Portfolio-wide ranking of every community by vacancy rate, plus two derived-signal sections: the "Fast-Track Approvals" callout and the "Aging 3+ Wks" column — see [Aging streak flag & Fast-Track Approvals](#aging-streak-flag--fast-track-approvals-callout) below |
+| `PriorityQueue/` | Priority Queue | Portfolio-wide ranking of every community by vacancy rate, plus two derived-signal sections: the "Fast-Track Approvals" callout and the "Aging 30+ Days" column — see [Aging flag & Fast-Track Approvals](#aging-flag--fast-track-approvals-callout) below |
 | `VacancyReportEntry/` | New Report | The actual weekly data-entry form. Card-per-unit layout (each unit is its own bordered card with a labeled CSS grid of fields) — replaced an earlier single-row-per-unit table after staff reported fields getting cut off |
 | `ReportPreview/` | Report Preview | Read-only view of one saved report: a Units table (with the per-unit aging flag), a Summary-by-Status-Category table, and (admin-only) a Delete Report button |
 | `AdminScreen/` | Admin *(hidden unless `isAdmin`)* | Edit the portfolio vacancy goal and, per-community, Hopper Goal / Active / Default Report Recipients |
@@ -166,12 +166,12 @@ A true live sync (SharePoint list change → Dataverse automatically) was deferr
 
 ---
 
-## Aging streak flag & Fast-Track Approvals callout
+## Aging flag & Fast-Track Approvals callout
 
-Two derived, always-computed-from-history signals added after a UX review — neither writes to Dataverse, both are computed fresh on every load:
+Two derived, always-computed-from-history signals added after UX reviews — neither writes to Dataverse, both are computed fresh on every load:
 
-- **Aging streak flag** (`useUnitStreaks.ts`, `AGING_STREAK_THRESHOLD = 3` in `types.ts`): a unit open on 3+ consecutive weekly reports in a row gets a red 🚩 flag — shown per-unit in Report Preview, and rolled up into an "Aging 3+ Wks" count per community in the Priority Queue. Deliberately doesn't touch the manual per-unit Risk dropdown (Low/Medium/High/Critical, filled in by staff) — this is a separate, always-accurate signal that doesn't depend on anyone remembering to update a field.
-- **Fast-Track Approvals** (`useFastTrackUnits.ts`): units whose Status Detail is "Submitted to Compliance" or "Corrections Requested" are pulled into a dedicated callout at the top of the Priority Queue screen, portfolio-wide — these are expected to convert to "Approved" fastest, so they're surfaced without anyone having to dig through each community's report individually. Corrections Requested sorts above Submitted to Compliance (it's blocking on staff/applicant action; Submitted to Compliance is just waiting on the reviewer).
+- **Aging flag** (`AGING_DAYS_THRESHOLD = 30` in `types.ts`): matches the priority logic described in the Affordable Housing Team's meeting ("vacant 30+ days gets bumped to the top"). Primary signal is a real day-count — today's/the report's date minus the unit's Vacant Since date (`cr1e9_actualvacancydate`) — the same date already used for the Priority Queue's Avg/Longest Days Vacant figures. For units missing that date (common on older/incomplete reports), it falls back to `useUnitStreaks.ts`'s consecutive-report streak (`AGING_STREAK_THRESHOLD = 3`) so the flag doesn't silently miss a unit just because staff never filled in a date. Shown per-unit as a red 🚩 badge in Report Preview's "Aging" column, and rolled up into an "Aging 30+ Days" count per community in the Priority Queue. Deliberately doesn't touch the manual per-unit Risk dropdown (Low/Medium/High/Critical, filled in by staff) — this is a separate, always-accurate signal that doesn't depend on anyone remembering to update a field.
+- **Fast-Track Approvals** (`useFastTrackUnits.ts`): units whose Status Detail is "Submitted to Compliance" or "Corrections Requested" are pulled into a dedicated callout at the top of the Priority Queue screen, portfolio-wide — these are expected to convert to "Approved" fastest, so they're surfaced without anyone having to dig through each community's report individually. Corrections Requested sorts above Submitted to Compliance (it's blocking on staff/applicant action; Submitted to Compliance is just waiting on the reviewer). Kept as a separate section from the aging flag rather than merged into one list — they're different urgency types (about to fill vs. stuck too long) needing different follow-up.
 
 ---
 

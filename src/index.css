@@ -121,3 +121,19 @@ button {
 input, select, textarea {
   font-family: inherit;
 }
+
+/* Print support (Report Preview's "Print" button) — the app shell is a fixed-height,
+   overflow-clipped single-page layout, which prints as a cropped snapshot unless reset. */
+@media print {
+  * {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+  body {
+    background: white !important;
+  }
+  header, nav, .no-print, img[aria-hidden="true"] {
+    display: none !important;
+  }
+}

@@ -36,10 +36,15 @@ export const STATUS_CATEGORY_SORT_ORDER = [
   'Compliance Review',
 ];
 
-// A unit open on this many consecutive weekly reports (or more) gets auto-flagged as high risk
-// in Report Preview and counted toward the Priority Queue's aging column. Requested by the
-// Affordable Housing Team as a leadership-visibility signal, independent of the manually-set
-// per-unit Risk dropdown.
+// A unit vacant this many days or more gets auto-flagged as high risk in Report Preview and
+// counted toward the Priority Queue's aging column - matches the ">30 days" priority logic
+// Jennifer described to the Affordable Housing Team. Measured from the Vacant Since date
+// staff enter (cr1e9_actualvacancydate) to the report date.
+export const AGING_DAYS_THRESHOLD = 30;
+
+// Fallback used only when a unit has no Vacant Since date on file (common for older/incomplete
+// reports) - a unit open this many consecutive weekly reports in a row is flagged instead, so
+// the signal still works without depending on staff remembering to fill in a date field.
 export const AGING_STREAK_THRESHOLD = 3;
 
 export type StatusColor = 'success' | 'warning' | 'info' | 'danger' | 'purple' | 'muted';
@@ -67,6 +72,7 @@ export interface UnitRowDraft {
   actualVacancyDate: string;
   expectedVacancyDate: string;
   expectedMoveInDate: string;
+  ntvDate: string;
   subsidized?: boolean;
   comment: string;
 }
@@ -85,6 +91,7 @@ export function emptyUnitRow(): UnitRowDraft {
     actualVacancyDate: '',
     expectedVacancyDate: '',
     expectedMoveInDate: '',
+    ntvDate: '',
     subsidized: undefined,
     comment: '',
   };

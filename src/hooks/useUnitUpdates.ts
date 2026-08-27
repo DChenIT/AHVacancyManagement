@@ -17,6 +17,7 @@ export interface UnitUpdate {
   actualVacancyDate?: string;
   expectedVacancyDate?: string;
   expectedMoveInDate?: string;
+  ntvDate?: string;
   subsidized?: boolean;
   comment?: string;
 }
@@ -25,7 +26,7 @@ const UNIT_SELECT = [
   'cr1e9_unitupdatesid', '_cr1e9_vacancyreport_value', 'cr1e9_name', 'cr1e9_vacancytype',
   'cr1e9_currentapplicantname', 'cr1e9_currentstatuscategory', 'cr1e9_currentstatusdetail',
   'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_risklevel', 'cr1e9_approvedhopper',
-  'cr1e9_actualvacancydate', 'cr1e9_expectedvacancydate', 'cr1e9_expectedmoveindate',
+  'cr1e9_actualvacancydate', 'cr1e9_expectedvacancydate', 'cr1e9_expectedmoveindate', 'cr1e9_ntvdate',
   'cr1e9_subsidized', 'cr1e9_additionalnotes',
 ];
 
@@ -44,6 +45,7 @@ function mapUnit(raw: {
   cr1e9_actualvacancydate?: string;
   cr1e9_expectedvacancydate?: string;
   cr1e9_expectedmoveindate?: string;
+  cr1e9_ntvdate?: string;
   cr1e9_subsidized?: boolean;
   cr1e9_additionalnotes?: string;
 }): UnitUpdate {
@@ -62,6 +64,7 @@ function mapUnit(raw: {
     actualVacancyDate: raw.cr1e9_actualvacancydate ? raw.cr1e9_actualvacancydate.split('T')[0] : undefined,
     expectedVacancyDate: raw.cr1e9_expectedvacancydate ? raw.cr1e9_expectedvacancydate.split('T')[0] : undefined,
     expectedMoveInDate: raw.cr1e9_expectedmoveindate ? raw.cr1e9_expectedmoveindate.split('T')[0] : undefined,
+    ntvDate: raw.cr1e9_ntvdate ? raw.cr1e9_ntvdate.split('T')[0] : undefined,
     subsidized: raw.cr1e9_subsidized,
     comment: raw.cr1e9_additionalnotes || undefined,
   };
@@ -127,6 +130,7 @@ export async function createUnitRows(vacancyReportId: string, rows: UnitRowDraft
       cr1e9_actualvacancydate: row.actualVacancyDate || undefined,
       cr1e9_expectedvacancydate: row.expectedVacancyDate || undefined,
       cr1e9_expectedmoveindate: row.expectedMoveInDate || undefined,
+      cr1e9_ntvdate: row.ntvDate || undefined,
       cr1e9_subsidized: row.subsidized,
       cr1e9_additionalnotes: row.comment || undefined,
       'cr1e9_vacancyreport@odata.bind': `/cr1e9_vacancyreportses(${vacancyReportId})`,

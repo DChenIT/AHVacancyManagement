@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Cr1e9_vacancyreportsesService } from '../generated/services/Cr1e9_vacancyreportsesService';
 import { Cr1e9_unitupdatesesService } from '../generated/services/Cr1e9_unitupdatesesService';
-import { STATUS_CATEGORY_LABEL, AGING_STREAK_THRESHOLD } from '../types';
+import { STATUS_CATEGORY_LABEL, AGING_DAYS_THRESHOLD, AGING_STREAK_THRESHOLD } from '../types';
 import type { Community } from './useCommunities';
 
 // How many of a community's most recent reports to walk back through when checking whether a
@@ -22,7 +22,7 @@ export interface PriorityEntry {
   maxDaysVacant?: number;
   /** Open units in this report missing an Actual Vacancy Date, so they're excluded from the aging figures above. */
   unitsMissingVacancyDate: number;
-  /** Units in the latest report that have been open for AGING_STREAK_THRESHOLD+ consecutive reports. */
+  /** Units in the latest report vacant AGING_DAYS_THRESHOLD+ days (or, lacking that date, open AGING_STREAK_THRESHOLD+ consecutive reports). */
   agingFlaggedCount: number;
 }
 
@@ -78,21 +78,21 @@ export function usePriorityQueue(communities: Community[]) {
       });
       if (unitsResult.error) throw new Error(unitsResult.error.message ?? 'Failed to load units');
 
-      const openUnitsByReport = new Map<string, { actualVacancyDate?: string }[]>();
+      const openUnitsByReport = new Map<string, { name: string; actualVacancyDate?: string }[]>();
       // Open unit numbers per report, across ALL reports (not just latest) - needed to walk
-      // backward and check consecutive-report streaks for the aging flag.
+      // backward and check consecutive-report streaks for the aging flag's fallback.
       const openUnitNamesByReport = new Map<string, Set<string>>();
       for (const u of unitsResult.data ?? []) {
         const rid = u._cr1e9_vacancyreport_value;
         if (!rid) continue;
         const cat = STATUS_CATEGORY_LABEL[u.cr1e9_currentstatuscategory as keyof typeof STATUS_CATEGORY_LABEL];
         if (cat === 'Approved') continue;
+        const nameKey = u.cr1e9_name?.trim().toLowerCase() ?? '';
         if (relevantReportIds.has(rid)) {
           const list = openUnitsByReport.get(rid) ?? [];
-          list.push({ actualVacancyDate: u.cr1e9_actualvacancydate ? u.cr1e9_actualvacancydate.split('T')[0] : undefined });
+          list.push({ name: nameKey, actualVacancyDate: u.cr1e9_actualvacancydate ? u.cr1e9_actualvacancydate.split('T')[0] : undefined });
           openUnitsByReport.set(rid, list);
         }
-        const nameKey = u.cr1e9_name?.trim().toLowerCase();
         if (nameKey) {
           if (!openUnitNamesByReport.has(rid)) openUnitNamesByReport.set(rid, new Set());
           openUnitNamesByReport.get(rid)!.add(nameKey);
@@ -116,12 +116,16 @@ export function usePriorityQueue(communities: Community[]) {
         const unitsMissingVacancyDate = openUnits.length - ages.length;
 
         const communityReports = (reportsByCommunity.get(community.id) ?? []).slice(0, AGING_LOOKBACK_REPORTS);
-        const latestOpenNames = openUnitNamesByReport.get(latest.id) ?? new Set<string>();
         let agingFlaggedCount = 0;
-        for (const unitKey of latestOpenNames) {
+        for (const u of openUnits) {
+          if (u.actualVacancyDate) {
+            if (Math.max(0, daysBetween(u.actualVacancyDate, latest.date)) >= AGING_DAYS_THRESHOLD) agingFlaggedCount++;
+            continue;
+          }
+          if (!u.name) continue;
           let streak = 0;
           for (const r of communityReports) {
-            if (openUnitNamesByReport.get(r.id)?.has(unitKey)) streak++;
+            if (openUnitNamesByReport.get(r.id)?.has(u.name)) streak++;
             else break;
           }
           if (streak >= AGING_STREAK_THRESHOLD) agingFlaggedCount++;
