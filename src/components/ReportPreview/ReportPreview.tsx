@@ -127,8 +127,8 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
         )}
         {report && (
           <button onClick={() => window.print()} style={{
-            background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)',
-            padding: '7px 14px', fontSize: 14,
+            backgroundColor: 'var(--accent)', border: 'none', borderRadius: 6, color: 'var(--accent-fg)',
+            padding: '7px 16px', fontSize: 14, fontWeight: 600,
           }}>🖨️ Print</button>
         )}
       </div>
