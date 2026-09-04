@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { SharePointOnlineService } from '../generated/services/SharePointOnlineService';
 
 // Separate from Dataverse and read live, not imported like the community roster CSV - this
-// SharePoint list changes often, so a periodic import would go stale. Confirm the exact list
-// display name below once you can check it directly (List Settings -> List name); it's inferred
-// here from the Directory *view* URL, which may not be the list's actual display name.
+// SharePoint list changes often, so a periodic import would go stale. List name confirmed by
+// the user (2026-09-08) - the "Directory" view in that URL is just a SharePoint UI filter and
+// doesn't need to appear here; GetItems reads the whole list regardless of which view it's
+// normally browsed through.
 const DIRECTORY_SITE_URL = 'https://humangood.sharepoint.com/sites/AHCommunitiesAnalyst';
 const DIRECTORY_LIST_NAME = 'AH Communities';
 

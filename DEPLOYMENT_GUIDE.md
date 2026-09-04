@@ -270,7 +270,7 @@ The Dashboard's "Show only my communities" checkbox and the four role filters (R
 
 1. Go to `https://make.powerapps.com/environments/<your-environment-id>/connections` → **+ New connection** → search **SharePoint** → **SharePoint Online** → **Create**, sign in with an account that has access to the target site.
 2. Find its connection ID: `npx power-apps list-connections`.
-3. Add the data source (replace the site URL and list name with your actual ones — the list name currently assumed in the code is `AH Communities`, confirm this matches the list's real display name in SharePoint's List Settings before relying on it):
+3. Add the data source (the site and list name below are already confirmed correct for this deployment — only change them if you're pointing at a different site/list):
    ```bash
    npx power-apps add-data-source -a sharepointonline -c <connection-id> -d 'https://yourtenant.sharepoint.com/sites/YourSite' -t 'Your List Name'
    ```
