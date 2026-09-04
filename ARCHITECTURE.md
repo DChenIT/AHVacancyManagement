@@ -115,6 +115,8 @@ One folder per screen, matching the five navigation tabs:
 | `usePriorityQueue` | `Cr1e9_vacancyreportsesService` + `Cr1e9_unitupdatesesService` | Portfolio-wide aggregation: latest report per community, vacancy rate, vacancy aging, and the aging-streak flag count — fetches all reports/units unfiltered and aggregates client-side rather than building a giant OR-filter string; fine at current data volume, revisit if report/unit counts grow much larger |
 | `useUnitStreaks` | `Cr1e9_unitupdatesesService` | Given a community's report history and a target report, walks backward up to 8 prior reports and counts each open unit's consecutive-open streak (matched by trimmed/lowercased unit number — units aren't a persistent Dataverse entity, each weekly report creates fresh child rows) |
 | `useFastTrackUnits` | `Cr1e9_vacancyreportsesService` + `Cr1e9_unitupdatesesService` | Portfolio-wide list of units currently "Submitted to Compliance" or "Corrections Requested" — feeds the Priority Queue's Fast-Track Approvals callout |
+| `useReportCompleteness` | `Cr1e9_vacancyreportsesService` | Portfolio-wide map of each community's latest report date, for the Dashboard's ✅/⚠️ "reported in the last 7 days" indicator |
+| `useCommunityDirectory` | `SharePointOnlineService` (SharePoint, not Dataverse) | Live read of a separate SharePoint list (RPS/RMS/Director/Compliance Specialist per community) for the Dashboard's role filters and "Show only my communities" — see [Community directory (SharePoint)](#community-directory-sharepoint) below |
 
 ### 4. Generated services (`src/generated/`) — typed clients, not hand-written
 
@@ -163,6 +165,16 @@ The Communities table is seeded from a **manual CSV export** of a SharePoint lis
 - Expects the raw SharePoint "export to CSV" format (a metadata line 1, real headers on line 2) — see the comment block at the top of the script for the exact column mapping.
 
 A true live sync (SharePoint list change → Dataverse automatically) was deferred, not built — see `memory-bank.md`'s "Real community roster" section for the two specific blockers if this gets picked up later.
+
+---
+
+## Community directory (SharePoint)
+
+Unlike the community roster above, the RPS/RMS/Director/Compliance Specialist assignments (`useCommunityDirectory.ts`) are read **live** from a separate SharePoint list, not imported into Dataverse — that list changes often enough that a periodic CSV re-import would go stale, per the Affordable Housing Team's request. This uses a fundamentally different connector pattern than every other data source in this app: the SharePoint Online connector generates one shared `SharePointOnlineService` (`GetItems`/`GetItem`/`PostItem`/`PatchItem`/`DeleteItem`) parameterized by `dataset` (site URL) + `table` (list name), rather than Dataverse's one-typed-service-per-table pattern.
+
+**This needs one manual setup step per environment that isn't done yet in dev** — dev is in a different Microsoft tenant than HumanGood's and can't reach that SharePoint site at all (same cross-tenant wall as the community roster). `src/generated/services/SharePointOnlineService.ts` is currently a hand-written local stub (gitignored) so the app builds; see `DEPLOYMENT_GUIDE.md`'s "Optional: Connect the live community directory" section for the real setup steps once working in the target tenant. Until that's done, the Dashboard's role filters and "Show only my communities" checkbox just have nothing to show — everything else in the app works normally regardless.
+
+Community matching between the two systems is a normalized (trim + lowercase) exact match of the SharePoint list's `Title` column against `cr1e9_communities.cr1e9_name` — a community with no matching row in the directory list simply won't match any filter.
 
 ---
 

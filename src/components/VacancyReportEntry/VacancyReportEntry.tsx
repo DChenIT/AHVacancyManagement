@@ -51,13 +51,14 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
   const [reportDate, setReportDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [rows, setRows] = useState<UnitRowDraft[]>([emptyUnitRow()]);
   const [notes, setNotes] = useState('');
+  const [nothingToReport, setNothingToReport] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [originalUnitIds, setOriginalUnitIds] = useState<string[]>([]);
   const [loadedEditReportId, setLoadedEditReportId] = useState<string | undefined>(undefined);
 
-  const { createReport, updateReportNotes, reports } = useVacancyReports(communityId || undefined);
+  const { createReport, updateReportFields, reports } = useVacancyReports(communityId || undefined);
   const { units: existingUnits, loading: existingUnitsLoading } = useUnitUpdates(editReportId);
   const selectedCommunity = communities.find(c => c.id === communityId);
   const editingReport = isEditMode ? reports.find(r => r.id === editReportId) : undefined;
@@ -73,6 +74,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     setCommunityId(editCommunityId ?? '');
     setReportDate(editingReport.reportDate);
     setNotes(editingReport.notes ?? '');
+    setNothingToReport(editingReport.nothingToReport);
     const drafts = existingUnits.map(toUnitRowDraft);
     setRows(drafts.length ? drafts : [emptyUnitRow()]);
     setOriginalUnitIds(existingUnits.map(u => u.id));
@@ -86,6 +88,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     setReportDate(new Date().toISOString().split('T')[0]);
     setRows([emptyUnitRow()]);
     setNotes('');
+    setNothingToReport(false);
     setOriginalUnitIds([]);
     setLoadedEditReportId(undefined);
   }, [editReportId, editCommunityId]);
@@ -102,33 +105,45 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     setRows(prev => prev.length > 1 ? prev.filter(r => r.tempId !== tempId) : prev);
   }
 
-  const canSave = !!communityId && !!reportDate && rows.some(r => r.unitNumber.trim());
+  const validRows = rows.filter(r => r.unitNumber.trim());
+  const statusDetailComplete = validRows.every(r => r.currentStatusDetail !== undefined);
+  const canSave = !!communityId && !!reportDate && (nothingToReport || (validRows.length > 0 && statusDetailComplete));
 
   async function handleSave() {
     if (!canSave || !selectedCommunity) return;
+    if (nothingToReport) {
+      const confirmed = window.confirm(
+        `You're marking "${selectedCommunity.name}" as Nothing to Report for ${reportDate}. No unit data will be saved. Continue?`
+      );
+      if (!confirmed) return;
+    }
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      const validRows = rows.filter(r => r.unitNumber.trim());
+      const currentValidRows = nothingToReport ? [] : validRows;
       if (isEditMode && editReportId) {
-        for (const row of validRows) {
+        for (const row of currentValidRows) {
           if (row.unitId) await updateUnitRow(row.unitId, row);
           else await createUnitRows(editReportId, [row]);
         }
-        const keptIds = new Set(validRows.map(r => r.unitId).filter((id): id is string => !!id));
+        const keptIds = new Set(currentValidRows.map(r => r.unitId).filter((id): id is string => !!id));
         for (const id of originalUnitIds) {
           if (!keptIds.has(id)) await deleteUnit(id);
         }
-        await updateReportNotes(editReportId, notes.trim());
+        await updateReportFields(editReportId, { notes: notes.trim(), nothingToReport });
         setSaveSuccess(true);
         onSaved(communityId, editReportId);
       } else {
-        const reportId = await createReport({ communityId, title: generatedTitle, reportDate, reportingPeriod: WEEKLY_REPORTING_PERIOD, notes: notes.trim() || undefined });
-        await createUnitRows(reportId, validRows);
+        const reportId = await createReport({
+          communityId, title: generatedTitle, reportDate, reportingPeriod: WEEKLY_REPORTING_PERIOD,
+          notes: notes.trim() || undefined, nothingToReport,
+        });
+        if (currentValidRows.length > 0) await createUnitRows(reportId, currentValidRows);
         setSaveSuccess(true);
         setRows([emptyUnitRow()]);
         setNotes('');
+        setNothingToReport(false);
         onSaved(communityId, reportId);
       }
     } catch (e) {
@@ -185,6 +200,20 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
         </div>
       </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+        <input
+          type="checkbox"
+          id="nothing-to-report"
+          checked={nothingToReport}
+          onChange={e => setNothingToReport(e.target.checked)}
+          style={{ width: 16, height: 16 }}
+        />
+        <label htmlFor="nothing-to-report" style={{ color: 'var(--text-primary)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+          Nothing to report this week
+        </label>
+      </div>
+
+      {!nothingToReport && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {rows.map((row, i) => (
           <div key={row.tempId} style={{
@@ -251,7 +280,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                   {STATUS_CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </Field>
-              <Field label="Status Detail">
+              <Field label="Status Detail" required>
                 <select style={inputStyle} value={row.currentStatusDetail ?? ''} onChange={e => updateRow(row.tempId, { currentStatusDetail: e.target.value ? Number(e.target.value) : undefined })}>
                   <option value="">—</option>
                   {STATUS_DETAIL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -271,6 +300,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
           </div>
         ))}
       </div>
+      )}
 
       <div style={{ marginTop: 16, maxWidth: 640 }}>
         <label style={labelStyle}>Notes</label>
@@ -283,10 +313,12 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
-        <button onClick={addRow} style={{
-          background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)',
-          padding: '8px 14px', fontSize: 14,
-        }}>+ Add Unit</button>
+        {!nothingToReport && (
+          <button onClick={addRow} style={{
+            background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)',
+            padding: '8px 14px', fontSize: 14,
+          }}>+ Add Unit</button>
+        )}
 
         <button onClick={handleSave} disabled={!canSave || saving} style={{
           backgroundColor: 'var(--accent)', color: 'var(--accent-fg)', border: 'none', borderRadius: 6,

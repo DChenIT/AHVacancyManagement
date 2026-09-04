@@ -74,7 +74,7 @@ export default function App() {
       <header style={{ backgroundColor: 'var(--accent)', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 20 }}>🏘️</span>
-          <span style={{ color: 'var(--accent-fg)', fontWeight: 700, fontSize: 16, whiteSpace: 'nowrap' }}>Vacancy Management</span>
+          <span style={{ color: 'var(--accent-fg)', fontWeight: 700, fontSize: 16, whiteSpace: 'nowrap' }}>Community Pulse</span>
         </div>
         <button
           onClick={toggleTheme}
@@ -93,7 +93,7 @@ export default function App() {
 
       <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {activeTab === 'dashboard' && (
-          <HomeDashboard communities={communities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} />
+          <HomeDashboard communities={communities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} currentUser={currentUser} />
         )}
         {activeTab === 'priority' && (
           <PriorityQueue communities={communities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} />

@@ -260,6 +260,24 @@ At this point you have a fully working, independently deployed copy of the app. 
 - **To deploy a change later:** just `npm run build && npx power-apps push` again from this same folder.
 - **To understand how the pieces fit together** once you're past initial setup, see `ARCHITECTURE.md`.
 - **To change a Dataverse choice option's label** (e.g. renaming a status category), that's not something the app's own UI does — it needs a one-off Web API script similar to the setup scripts here, followed by re-running the `add-data-source` command for that table so the app's generated code picks up the new label. See `memory-bank.md` for a worked example if you need to do this.
+- **The Dashboard's community-directory filters need one more optional step** — see below.
+
+---
+
+## Optional: Connect the live community directory (RPS/RMS/Director/Compliance Specialist filters)
+
+The Dashboard's "Show only my communities" checkbox and the four role filters (RPS, RMS, Director, Compliance Specialist) read live from a SharePoint list, not from Dataverse — that list changes often, so it's queried directly rather than imported like the community roster. Until this is set up, those filters and the checkbox simply show nothing to filter by; the rest of the app works normally either way.
+
+1. Go to `https://make.powerapps.com/environments/<your-environment-id>/connections` → **+ New connection** → search **SharePoint** → **SharePoint Online** → **Create**, sign in with an account that has access to the target site.
+2. Find its connection ID: `npx power-apps list-connections`.
+3. Add the data source (replace the site URL and list name with your actual ones — the list name currently assumed in the code is `AH Communities`, confirm this matches the list's real display name in SharePoint's List Settings before relying on it):
+   ```bash
+   npx power-apps add-data-source -a sharepointonline -c <connection-id> -d 'https://yourtenant.sharepoint.com/sites/YourSite' -t 'Your List Name'
+   ```
+   This generates the real `src/generated/services/SharePointOnlineService.ts`, replacing the local dev-only stub committed in this repo.
+4. Open `src/hooks/useCommunityDirectory.ts` and update `DIRECTORY_SITE_URL`/`DIRECTORY_LIST_NAME` at the top if your actual site/list differ from what's assumed there.
+5. `npm run build` — if the real connector's Person/Group field shape differs from what the code assumes (`{Id, Value, Email?}`), you'll see it here; adjust `toPerson()` in that same file to match.
+6. `npx power-apps push`.
 
 ---
 

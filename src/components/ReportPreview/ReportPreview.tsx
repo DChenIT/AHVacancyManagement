@@ -61,10 +61,12 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
   const report = reports.find(r => r.id === reportId) ?? reports[0];
   const { units, loading: unitsLoading } = useUnitUpdates(report?.id);
   const { streaks } = useUnitStreaks(reports, report?.id);
-  // Only the community's most recent report is editable - once a newer one exists, older
-  // reports are locked so the "each report is a fixed weekly snapshot" history stays reliable
-  // (the aging-flag streak fallback and Fast-Track callout both read that history).
+  // Only the community's most recent report is editable for regular staff - once a newer one
+  // exists, older reports lock so the "each report is a fixed weekly snapshot" history stays
+  // reliable (the aging-flag streak fallback and Fast-Track callout both read that history).
+  // Admins can override this and edit any report, to fix a mistake found later.
   const isLatestReport = !!report && reports[0]?.id === report.id;
+  const canEdit = !!report && (isAdmin || isLatestReport);
 
   async function handleDelete() {
     if (!report) return;
@@ -119,7 +121,7 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
           <option value="">{reportsLoading ? 'Loading…' : 'Select a report…'}</option>
           {reports.map(r => <option key={r.id} value={r.id}>{r.title} — {r.reportDate}</option>)}
         </select>
-        {report && isLatestReport && onEditReport && (
+        {report && canEdit && onEditReport && (
           <button onClick={() => onEditReport(communityId, report.id)} style={{
             background: 'none', border: '1px solid var(--accent)', borderRadius: 6, color: 'var(--accent)',
             padding: '7px 14px', fontSize: 14, fontWeight: 600,
@@ -132,9 +134,9 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
           }}>🖨️ Print</button>
         )}
       </div>
-      {report && !isLatestReport && (
+      {report && !canEdit && (
         <p className="no-print" style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: -14, marginBottom: 20 }}>
-          This is an older report and can't be edited — only a community's most recent report is editable.
+          This is an older report and can't be edited — only a community's most recent report is editable (admins can edit any report).
         </p>
       )}
 
@@ -165,6 +167,15 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
               {report.title} · {report.reportDate} · Status: {REPORT_STATUS_OPTIONS.find(o => o.value === report.reportStatus)?.label ?? '—'}
               {unitsLoading && <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>Refreshing…</span>}
             </div>
+            {report.nothingToReport && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8,
+                backgroundColor: 'var(--success-bg)', color: 'var(--success)',
+                borderRadius: 12, padding: '3px 10px', fontSize: 13, fontWeight: 600,
+              }}>
+                <span aria-hidden="true">✓</span>Nothing to Report
+              </div>
+            )}
             {community?.numberOfUnits !== undefined && (
               <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 6 }}>
                 {community.numberOfUnits} units{community.propertyManager ? ` · Site Admin: ${community.propertyManager}` : ''}{community.regionalManager ? ` · RPS: ${community.regionalManager}` : ''}
@@ -205,7 +216,9 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
                   );
                 })}
                 {sortedUnits.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>No units recorded for this report.</td></tr>
+                  <tr><td colSpan={5} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>
+                    {report.nothingToReport ? 'Nothing to report this week.' : 'No units recorded for this report.'}
+                  </td></tr>
                 )}
               </tbody>
             </table>

@@ -9,6 +9,7 @@ export interface VacancyReport {
   reportingPeriod?: number;
   reportStatus: number;
   notes?: string;
+  nothingToReport: boolean;
 }
 
 function mapReport(raw: {
@@ -19,6 +20,7 @@ function mapReport(raw: {
   cr1e9_reportingperiod?: number;
   cr1e9_reportstatus: number;
   cr1e9_additionalnotes?: string;
+  cr1e9_nothingtoreport?: boolean;
 }): VacancyReport {
   return {
     id: raw.cr1e9_vacancyreportsid,
@@ -28,10 +30,14 @@ function mapReport(raw: {
     reportingPeriod: raw.cr1e9_reportingperiod,
     reportStatus: raw.cr1e9_reportstatus,
     notes: raw.cr1e9_additionalnotes || undefined,
+    nothingToReport: raw.cr1e9_nothingtoreport ?? false,
   };
 }
 
-const REPORT_SELECT = ['cr1e9_vacancyreportsid', '_cr1e9_community_value', 'cr1e9_name', 'cr1e9_reportdate', 'cr1e9_reportingperiod', 'cr1e9_reportstatus', 'cr1e9_additionalnotes'];
+const REPORT_SELECT = [
+  'cr1e9_vacancyreportsid', '_cr1e9_community_value', 'cr1e9_name', 'cr1e9_reportdate',
+  'cr1e9_reportingperiod', 'cr1e9_reportstatus', 'cr1e9_additionalnotes', 'cr1e9_nothingtoreport',
+];
 
 export function useVacancyReports(communityId?: string) {
   const [reports, setReports] = useState<VacancyReport[]>([]);
@@ -71,6 +77,7 @@ export function useVacancyReports(communityId?: string) {
     reportDate: string;
     reportingPeriod: number;
     notes?: string;
+    nothingToReport?: boolean;
   }): Promise<string> => {
     const result = await Cr1e9_vacancyreportsesService.create({
       cr1e9_name: input.title,
@@ -78,6 +85,7 @@ export function useVacancyReports(communityId?: string) {
       cr1e9_reportingperiod: input.reportingPeriod as any,
       cr1e9_reportstatus: 100000000 as any, // Draft
       cr1e9_additionalnotes: input.notes || undefined,
+      cr1e9_nothingtoreport: input.nothingToReport ?? false,
       'cr1e9_community@odata.bind': `/cr1e9_communitieses(${input.communityId})`,
     } as any);
     if (result.error || !result.data) throw new Error(result.error?.message ?? 'Failed to create vacancy report');
@@ -89,13 +97,16 @@ export function useVacancyReports(communityId?: string) {
     await refresh();
   }, [refresh]);
 
-  // Only notes are editable on an existing report - Community/Report Date/Title are fixed once
-  // created (changing them would really mean "a different report"), see VacancyReportEntry's
-  // edit mode.
-  const updateReportNotes = useCallback(async (reportId: string, notes: string): Promise<void> => {
-    const result = await Cr1e9_vacancyreportsesService.update(reportId, { cr1e9_additionalnotes: notes || undefined } as any);
-    if (result.error) throw new Error(result.error.message ?? 'Failed to update report notes');
+  // Only Notes and Nothing to Report are editable on an existing report - Community/Report
+  // Date/Title are fixed once created (changing them would really mean "a different report"),
+  // see VacancyReportEntry's edit mode.
+  const updateReportFields = useCallback(async (reportId: string, fields: { notes?: string; nothingToReport?: boolean }): Promise<void> => {
+    const result = await Cr1e9_vacancyreportsesService.update(reportId, {
+      cr1e9_additionalnotes: fields.notes || undefined,
+      cr1e9_nothingtoreport: fields.nothingToReport,
+    } as any);
+    if (result.error) throw new Error(result.error.message ?? 'Failed to update report');
   }, []);
 
-  return { reports, loading, error, refresh, createReport, deleteReport, updateReportNotes };
+  return { reports, loading, error, refresh, createReport, deleteReport, updateReportFields };
 }
