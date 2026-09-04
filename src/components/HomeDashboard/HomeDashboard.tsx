@@ -3,6 +3,7 @@ import type { Community } from '../../hooks/useCommunities';
 import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { useVacancyReports } from '../../hooks/useVacancyReports';
 import { useUnitUpdates } from '../../hooks/useUnitUpdates';
+import { useCommunityDirectory, personMatchesUser, type DirectoryEntry, type DirectoryPerson } from '../../hooks/useCommunityDirectory';
 import { useReportCompleteness } from '../../hooks/useReportCompleteness';
 import { STATUS_CATEGORY_LABEL, VACANCY_TYPE_LABEL } from '../../types';
 
@@ -13,9 +14,9 @@ interface Props {
   currentUser: CurrentUser | null;
 }
 
-type DirectoryRole = 'regionalManager' | 'regionalMaintenanceSupervisor' | 'director' | 'complianceSpecialist';
+type DirectoryRole = 'rps' | 'rms' | 'director' | 'complianceSpecialist';
 const ROLE_LABELS: Record<DirectoryRole, string> = {
-  regionalManager: 'RPS', regionalMaintenanceSupervisor: 'RMS', director: 'Director', complianceSpecialist: 'Compliance Specialist',
+  rps: 'RPS', rms: 'RMS', director: 'Director', complianceSpecialist: 'Compliance Specialist',
 };
 
 function Tile({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
@@ -30,20 +31,17 @@ function Tile({ label, value, accent }: { label: string; value: string | number;
   );
 }
 
-// Matches by name only, since this is a plain-text CSV-imported field (not a SharePoint
-// Person/Group lookup with an email) - case-insensitive, trimmed.
-function nameMatchesUser(fieldValue: string | undefined, userDisplayName?: string): boolean {
-  if (!fieldValue || !userDisplayName) return false;
-  return fieldValue.trim().toLowerCase() === userDisplayName.trim().toLowerCase();
+function distinctPeople(entries: DirectoryEntry[], role: DirectoryRole): DirectoryPerson[] {
+  const seen = new Map<string, DirectoryPerson>();
+  for (const e of entries) {
+    const p = e[role];
+    if (p) seen.set(p.displayName, p);
+  }
+  return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
-function distinctValues(communities: Community[], role: DirectoryRole): string[] {
-  const seen = new Set<string>();
-  for (const c of communities) {
-    const v = c[role];
-    if (v) seen.add(v);
-  }
-  return [...seen].sort((a, b) => a.localeCompare(b));
+function normalizeName(name: string): string {
+  return name.trim().toLowerCase();
 }
 
 const filterSelectStyle: React.CSSProperties = {
@@ -56,47 +54,60 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
   const [search, setSearch] = useState('');
   const [showMyCommunities, setShowMyCommunities] = useState(false);
   const [roleFilters, setRoleFilters] = useState<Record<DirectoryRole, string>>({
-    regionalManager: '', regionalMaintenanceSupervisor: '', director: '', complianceSpecialist: '',
+    rps: '', rms: '', director: '', complianceSpecialist: '',
   });
   const autoDefaultedRef = useRef(false);
   const selected = communities.find(c => c.id === communityId);
 
+  const { entries: directoryEntries, loading: directoryLoading, error: directoryError } = useCommunityDirectory();
   const { isUpToDate } = useReportCompleteness();
 
-  // Default "Show only my communities" on once communities have loaded, if the signed-in user
+  const directoryByCommunity = useMemo(() => {
+    const map = new Map<string, DirectoryEntry>();
+    for (const e of directoryEntries) map.set(normalizeName(e.communityTitle), e);
+    return map;
+  }, [directoryEntries]);
+
+  // Default "Show only my communities" on once the directory has loaded, if the signed-in user
   // is actually assigned somewhere - one-time so it doesn't fight with the user unchecking it.
   useEffect(() => {
-    if (autoDefaultedRef.current || communitiesLoading || communities.length === 0 || !currentUser?.displayName) return;
+    if (autoDefaultedRef.current || directoryLoading || directoryEntries.length === 0 || !currentUser) return;
     autoDefaultedRef.current = true;
-    const assignedSomewhere = communities.some(c =>
-      nameMatchesUser(c.regionalManager, currentUser.displayName) ||
-      nameMatchesUser(c.regionalMaintenanceSupervisor, currentUser.displayName) ||
-      nameMatchesUser(c.director, currentUser.displayName) ||
-      nameMatchesUser(c.complianceSpecialist, currentUser.displayName)
+    const assignedSomewhere = directoryEntries.some(e =>
+      personMatchesUser(e.rps, currentUser.email, currentUser.displayName) ||
+      personMatchesUser(e.rms, currentUser.email, currentUser.displayName) ||
+      personMatchesUser(e.director, currentUser.email, currentUser.displayName) ||
+      personMatchesUser(e.complianceSpecialist, currentUser.email, currentUser.displayName)
     );
     if (assignedSomewhere) setShowMyCommunities(true);
-  }, [communitiesLoading, communities, currentUser]);
+  }, [directoryLoading, directoryEntries, currentUser]);
 
   const filteredCommunities = useMemo(() => {
     let list = communities;
     const q = search.trim().toLowerCase();
     if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q));
 
-    if (showMyCommunities && currentUser?.displayName) {
-      list = list.filter(c =>
-        nameMatchesUser(c.regionalManager, currentUser.displayName) ||
-        nameMatchesUser(c.regionalMaintenanceSupervisor, currentUser.displayName) ||
-        nameMatchesUser(c.director, currentUser.displayName) ||
-        nameMatchesUser(c.complianceSpecialist, currentUser.displayName)
-      );
+    const anyDirectoryFilterActive = showMyCommunities || roleFilters.rps || roleFilters.rms || roleFilters.director || roleFilters.complianceSpecialist;
+    if (anyDirectoryFilterActive) {
+      list = list.filter(c => {
+        const entry = directoryByCommunity.get(normalizeName(c.name));
+        if (!entry) return false;
+        if (showMyCommunities && currentUser) {
+          const mine = personMatchesUser(entry.rps, currentUser.email, currentUser.displayName) ||
+            personMatchesUser(entry.rms, currentUser.email, currentUser.displayName) ||
+            personMatchesUser(entry.director, currentUser.email, currentUser.displayName) ||
+            personMatchesUser(entry.complianceSpecialist, currentUser.email, currentUser.displayName);
+          if (!mine) return false;
+        }
+        if (roleFilters.rps && entry.rps?.displayName !== roleFilters.rps) return false;
+        if (roleFilters.rms && entry.rms?.displayName !== roleFilters.rms) return false;
+        if (roleFilters.director && entry.director?.displayName !== roleFilters.director) return false;
+        if (roleFilters.complianceSpecialist && entry.complianceSpecialist?.displayName !== roleFilters.complianceSpecialist) return false;
+        return true;
+      });
     }
-    if (roleFilters.regionalManager) list = list.filter(c => c.regionalManager === roleFilters.regionalManager);
-    if (roleFilters.regionalMaintenanceSupervisor) list = list.filter(c => c.regionalMaintenanceSupervisor === roleFilters.regionalMaintenanceSupervisor);
-    if (roleFilters.director) list = list.filter(c => c.director === roleFilters.director);
-    if (roleFilters.complianceSpecialist) list = list.filter(c => c.complianceSpecialist === roleFilters.complianceSpecialist);
-
     return list;
-  }, [communities, search, showMyCommunities, roleFilters, currentUser]);
+  }, [communities, search, showMyCommunities, roleFilters, directoryByCommunity, currentUser]);
 
   const { reports, loading: reportsLoading } = useVacancyReports(communityId || undefined);
   const latestReport = reports[0];
@@ -145,12 +156,15 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
                 onChange={e => setRoleFilters(prev => ({ ...prev, [role]: e.target.value }))}
               >
                 <option value="">{ROLE_LABELS[role]}: All</option>
-                {distinctValues(communities, role).map(name => (
-                  <option key={name} value={name}>{ROLE_LABELS[role]}: {name}</option>
+                {distinctPeople(directoryEntries, role).map(p => (
+                  <option key={p.displayName} value={p.displayName}>{ROLE_LABELS[role]}: {p.displayName}</option>
                 ))}
               </select>
             </div>
           ))}
+          {directoryError && (
+            <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>Directory unavailable — filters may be empty.</div>
+          )}
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 12px' }}>

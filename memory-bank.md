@@ -173,6 +173,15 @@ Given that, and since it would need per-environment manual connector setup regar
 - `useCommunityDirectory.ts` and the local `SharePointOnlineService.ts` stub were **deleted** - no longer needed. `HomeDashboard.tsx`'s filters and "Show only my communities" now read directly off `Community.regionalManager`/`.regionalMaintenanceSupervisor`/`.director`/`.complianceSpecialist` (plain Dataverse fields, via `useCommunities`), matched against the signed-in user by **display name only** (`nameMatchesUser`) - no email available anymore since these are plain-text CSV-imported fields, not SharePoint Person/Group objects. Less precise than email matching would have been, but simpler and doesn't depend on a connector that can't currently be deployed at all.
 - Net effect: Request 1 is now fully self-contained in Dataverse, no external connector dependency, but the directory only refreshes when someone re-runs the import script (not live) - a deliberate trade the user chose given the deployment blocker, not the original "changes often, needs to be live" preference. Worth re-litigating if/when the `power-apps init` issue gets resolved and live sync becomes viable again.
 
+## Community directory: reverted back to the live SharePoint connector (2026-09-08, same day)
+
+Same day, the user realized their `power.config.json` had never had a SharePoint Online connection configured at all (unsurprising - `init` itself never completed, so nothing downstream of it, including any connector, was ever set up) and asked to go back to the live-connector approach rather than the CSV fallback above, planning to create the connection themselves once they're past the `init` blocker.
+
+- `useCommunityDirectory.ts`, `HomeDashboard.tsx` (SharePoint-filtered version), `ARCHITECTURE.md`, and `DEPLOYMENT_GUIDE.md` were restored from git history (commit `d7316bb`, the last commit before the CSV pivot) rather than rewritten from scratch - faster and guaranteed identical to what was already reviewed/built.
+- The local dev-only `SharePointOnlineService.ts` stub and its export line in `src/generated/index.ts` were recreated (both are gitignored/hand-maintained, so restoring the tracked files alone didn't bring these back).
+- `useCommunities.ts`, `import-communities-csv.ps1`, and the two new Dataverse columns (`cr1e9_regionalmaintenancesupervisor`, `cr1e9_compliancespecialist`) from the CSV attempt were **left in place**, not reverted - they're just unused by the Dashboard again now. No reason to churn Dataverse schema a third time over the same fields; see the Turn Status saga above for why repeated delete/recreate cycles on live schema are worth avoiding. If the CSV approach is ever wanted again, those columns and the import mapping are already there.
+- The underlying blocker is unchanged: `npx power-apps init` still fails against the work tenant with the DNS/CLI issue described above. This SharePoint work is back to being untestable until that's resolved, exactly as it was the first time.
+
 ## Next Steps (Phase 2+)
 
 - Hopper calculations formalized as a shared utility (currently inlined in HomeDashboard as simple proxies)
