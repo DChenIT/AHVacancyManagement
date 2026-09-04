@@ -219,7 +219,7 @@ The Communities table starts out empty — there's no built-in sample data. Pick
   ```powershell
   .\scripts\import-communities-csv.ps1 -CsvPath "C:\path\to\export.csv" -OrgUrl "https://yourorg.crm.dynamics.com"
   ```
-  This is safe to re-run any time your roster changes — it matches existing rows by Community Code and only adds/updates, never duplicates. It expects the exact column names a raw SharePoint CSV export produces (Title, Community Code, Administrator, Regional Property Supervisor, Director, Asset Manager, # of units) — see the comment block at the top of the script if your columns are named differently.
+  This is safe to re-run any time your roster changes — it matches existing rows by Community Code and only adds/updates, never duplicates. It expects the exact column names a raw SharePoint CSV export produces (Title, Community Code, Administrator, Regional Property Supervisor, Director, Asset Manager, Regional Maintenance Supervisor, Compliance Specialist, # of units) — see the comment block at the top of the script if your columns are named differently. The last four (RPS, Director, RMS, Compliance Specialist) also drive the Dashboard's role filters and "Show only my communities" checkbox.
 
 ---
 
@@ -260,24 +260,7 @@ At this point you have a fully working, independently deployed copy of the app. 
 - **To deploy a change later:** just `npm run build && npx power-apps push` again from this same folder.
 - **To understand how the pieces fit together** once you're past initial setup, see `ARCHITECTURE.md`.
 - **To change a Dataverse choice option's label** (e.g. renaming a status category), that's not something the app's own UI does — it needs a one-off Web API script similar to the setup scripts here, followed by re-running the `add-data-source` command for that table so the app's generated code picks up the new label. See `memory-bank.md` for a worked example if you need to do this.
-- **The Dashboard's community-directory filters need one more optional step** — see below.
-
----
-
-## Optional: Connect the live community directory (RPS/RMS/Director/Compliance Specialist filters)
-
-The Dashboard's "Show only my communities" checkbox and the four role filters (RPS, RMS, Director, Compliance Specialist) read live from a SharePoint list, not from Dataverse — that list changes often, so it's queried directly rather than imported like the community roster. Until this is set up, those filters and the checkbox simply show nothing to filter by; the rest of the app works normally either way.
-
-1. Go to `https://make.powerapps.com/environments/<your-environment-id>/connections` → **+ New connection** → search **SharePoint** → **SharePoint Online** → **Create**, sign in with an account that has access to the target site.
-2. Find its connection ID: `npx power-apps list-connections`.
-3. Add the data source (the site and list name below are already confirmed correct for this deployment — only change them if you're pointing at a different site/list):
-   ```bash
-   npx power-apps add-data-source -a sharepointonline -c <connection-id> -d 'https://yourtenant.sharepoint.com/sites/YourSite' -t 'Your List Name'
-   ```
-   This generates the real `src/generated/services/SharePointOnlineService.ts`, replacing the local dev-only stub committed in this repo.
-4. Open `src/hooks/useCommunityDirectory.ts` and update `DIRECTORY_SITE_URL`/`DIRECTORY_LIST_NAME` at the top if your actual site/list differ from what's assumed there.
-5. `npm run build` — if the real connector's Person/Group field shape differs from what the code assumes (`{Id, Value, Email?}`), you'll see it here; adjust `toPerson()` in that same file to match.
-6. `npx power-apps push`.
+- **The Dashboard's community-directory filters (RPS/RMS/Director/Compliance Specialist)** come from the same CSV import as the rest of the roster (Step 9) — re-run `scripts/import-communities-csv.ps1` with a fresh export any time those assignments change. No separate connector or setup step needed.
 
 ---
 

@@ -10,13 +10,19 @@
 # blob (skipped) and line 2 is the real column header row.
 #
 # Column mapping (source CSV -> Dataverse):
-#   Title                        -> cr1e9_name
-#   Community Code                -> cr1e9_communitycode
-#   Administrator                 -> cr1e9_propertymanager   (site administrator)
-#   Regional Property Supervisor  -> cr1e9_regionalmanager
-#   Director                      -> cr1e9_director
-#   Asset Manager                 -> cr1e9_assetmanager
-#   %23 of units ("# of units")   -> cr1e9_numberofunits
+#   Title                            -> cr1e9_name
+#   Community Code                    -> cr1e9_communitycode
+#   Administrator                     -> cr1e9_propertymanager   (site administrator)
+#   Regional Property Supervisor      -> cr1e9_regionalmanager
+#   Director                          -> cr1e9_director
+#   Asset Manager                     -> cr1e9_assetmanager
+#   Regional Maintenance Supervisor   -> cr1e9_regionalmaintenancesupervisor
+#   Compliance Specialist             -> cr1e9_compliancespecialist
+#   %23 of units ("# of units")       -> cr1e9_numberofunits
+#
+# The last two (RMS, Compliance Specialist) are Person/Group columns in SharePoint - a raw CSV
+# export renders those as the person's display name text, same as Administrator/RPS/Director
+# already are, so no special handling is needed here.
 #
 # App-owned fields (cr1e9_hoppergoal, cr1e9_active, cr1e9_defaultreportrecipients) are
 # never touched on update, so this script won't clobber values set inside the app.
@@ -63,6 +69,8 @@ foreach ($row in $rows) {
         cr1e9_regionalmanager = $row.'Regional Property Supervisor'
         cr1e9_director = $row.Director
         cr1e9_assetmanager = $row.'Asset Manager'
+        cr1e9_regionalmaintenancesupervisor = $row.'Regional Maintenance Supervisor'
+        cr1e9_compliancespecialist = $row.'Compliance Specialist'
         cr1e9_numberofunits = $units
     } | ConvertTo-Json
 

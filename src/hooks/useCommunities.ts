@@ -13,6 +13,9 @@ export interface Community {
   propertyManager?: string;
   director?: string;
   assetManager?: string;
+  /** Regional Maintenance Supervisor, synced from the SharePoint directory list */
+  regionalMaintenanceSupervisor?: string;
+  complianceSpecialist?: string;
   numberOfUnits?: number;
   defaultReportRecipients?: string;
 }
@@ -27,6 +30,8 @@ function mapCommunity(raw: {
   cr1e9_propertymanager?: string;
   cr1e9_director?: string;
   cr1e9_assetmanager?: string;
+  cr1e9_regionalmaintenancesupervisor?: string;
+  cr1e9_compliancespecialist?: string;
   cr1e9_numberofunits?: number;
   cr1e9_defaultreportrecipients?: string;
 }): Community {
@@ -40,6 +45,8 @@ function mapCommunity(raw: {
     propertyManager: raw.cr1e9_propertymanager || undefined,
     director: raw.cr1e9_director || undefined,
     assetManager: raw.cr1e9_assetmanager || undefined,
+    regionalMaintenanceSupervisor: raw.cr1e9_regionalmaintenancesupervisor || undefined,
+    complianceSpecialist: raw.cr1e9_compliancespecialist || undefined,
     numberOfUnits: raw.cr1e9_numberofunits ?? undefined,
     defaultReportRecipients: raw.cr1e9_defaultreportrecipients || undefined,
   };
@@ -55,7 +62,12 @@ export function useCommunities() {
     setError(null);
     try {
       const result = await Cr1e9_communitiesesService.getAll({
-        select: ['cr1e9_communitiesid', 'cr1e9_name', 'cr1e9_communitycode', 'cr1e9_active', 'cr1e9_hoppergoal', 'cr1e9_regionalmanager', 'cr1e9_propertymanager', 'cr1e9_director', 'cr1e9_assetmanager', 'cr1e9_numberofunits', 'cr1e9_defaultreportrecipients'],
+        select: [
+          'cr1e9_communitiesid', 'cr1e9_name', 'cr1e9_communitycode', 'cr1e9_active', 'cr1e9_hoppergoal',
+          'cr1e9_regionalmanager', 'cr1e9_propertymanager', 'cr1e9_director', 'cr1e9_assetmanager',
+          'cr1e9_regionalmaintenancesupervisor', 'cr1e9_compliancespecialist',
+          'cr1e9_numberofunits', 'cr1e9_defaultreportrecipients',
+        ],
         orderBy: ['cr1e9_name asc'],
       });
       if (result.error) {
