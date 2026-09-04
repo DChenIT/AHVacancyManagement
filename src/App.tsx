@@ -74,7 +74,7 @@ export default function App() {
       <header style={{ backgroundColor: 'var(--accent)', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 20 }}>🏘️</span>
-          <span style={{ color: 'var(--accent-fg)', fontWeight: 700, fontSize: 16, whiteSpace: 'nowrap' }}>Community Pulse</span>
+          <span style={{ color: 'var(--accent-fg)', fontWeight: 700, fontSize: 16, whiteSpace: 'nowrap' }}>AH Community Pulse</span>
         </div>
         <button
           onClick={toggleTheme}
