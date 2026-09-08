@@ -219,8 +219,18 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
           <div key={row.tempId} style={{
             border: '1px solid var(--border)', borderRadius: 10, backgroundColor: 'var(--bg-surface)', padding: '14px 16px',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>Unit {i + 1}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>Unit {i + 1}</span>
+                <select
+                  value={row.isHopper ? 'hopper' : 'vacant'}
+                  onChange={e => updateRow(row.tempId, { isHopper: e.target.value === 'hopper' })}
+                  style={{ ...inputStyle, width: 'auto', padding: '4px 8px', fontSize: 13 }}
+                >
+                  <option value="vacant">Vacant</option>
+                  <option value="hopper">Hopper</option>
+                </select>
+              </div>
               <button onClick={() => removeRow(row.tempId)} disabled={rows.length === 1} style={{
                 background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--danger)',
                 padding: '4px 10px', fontSize: 13, opacity: rows.length === 1 ? 0.4 : 1,
@@ -262,6 +272,11 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
               <Field label="Expected Move-In">
                 <input type="date" style={inputStyle} value={row.expectedMoveInDate} onChange={e => updateRow(row.tempId, { expectedMoveInDate: e.target.value })} />
               </Field>
+              {row.isHopper && (
+                <Field label="Stale Date">
+                  <input type="date" style={inputStyle} value={row.staleDate} onChange={e => updateRow(row.tempId, { staleDate: e.target.value })} />
+                </Field>
+              )}
               <Field label="Risk">
                 <select style={inputStyle} value={row.riskLevel ?? ''} onChange={e => updateRow(row.tempId, { riskLevel: e.target.value ? Number(e.target.value) : undefined })}>
                   <option value="">—</option>

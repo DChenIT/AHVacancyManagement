@@ -21,6 +21,7 @@ export interface UnitUpdate {
   turnStatus?: number;
   subsidized?: boolean;
   comment?: string;
+  staleDate?: string;
 }
 
 const UNIT_SELECT = [
@@ -28,7 +29,7 @@ const UNIT_SELECT = [
   'cr1e9_currentapplicantname', 'cr1e9_currentstatuscategory', 'cr1e9_currentstatusdetail',
   'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_risklevel', 'cr1e9_approvedhopper',
   'cr1e9_actualvacancydate', 'cr1e9_expectedvacancydate', 'cr1e9_expectedmoveindate', 'cr1e9_ntvdate',
-  'cr1e9_turnreadiness', 'cr1e9_subsidized', 'cr1e9_additionalnotes',
+  'cr1e9_turnreadiness', 'cr1e9_subsidized', 'cr1e9_additionalnotes', 'cr1e9_staledate',
 ];
 
 function mapUnit(raw: {
@@ -50,6 +51,7 @@ function mapUnit(raw: {
   cr1e9_turnreadiness?: number;
   cr1e9_subsidized?: boolean;
   cr1e9_additionalnotes?: string;
+  cr1e9_staledate?: string;
 }): UnitUpdate {
   return {
     id: raw.cr1e9_unitupdatesid,
@@ -70,6 +72,7 @@ function mapUnit(raw: {
     turnStatus: raw.cr1e9_turnreadiness,
     subsidized: raw.cr1e9_subsidized,
     comment: raw.cr1e9_additionalnotes || undefined,
+    staleDate: raw.cr1e9_staledate ? raw.cr1e9_staledate.split('T')[0] : undefined,
   };
 }
 
@@ -93,6 +96,8 @@ export function toUnitRowDraft(unit: UnitUpdate): UnitRowDraft {
     turnStatus: unit.turnStatus,
     subsidized: unit.subsidized,
     comment: unit.comment ?? '',
+    isHopper: unit.approvedHopper,
+    staleDate: unit.staleDate ?? '',
   };
 }
 
@@ -113,6 +118,8 @@ function unitRowPayload(row: UnitRowDraft) {
     cr1e9_turnreadiness: row.turnStatus as any,
     cr1e9_subsidized: row.subsidized,
     cr1e9_additionalnotes: row.comment || undefined,
+    cr1e9_approvedhopper: row.isHopper,
+    cr1e9_staledate: row.isHopper ? (row.staleDate || undefined) : undefined,
   };
 }
 

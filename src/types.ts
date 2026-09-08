@@ -84,6 +84,10 @@ export interface UnitRowDraft {
   turnStatus?: number;
   subsidized?: boolean;
   comment: string;
+  /** Marks this row as tracking an approved-applicant "hopper" rather than an open vacancy — mirrors cr1e9_approvedhopper. */
+  isHopper: boolean;
+  /** Only meaningful when isHopper is true — the date this hopper's file is considered stale and needs follow-up. */
+  staleDate: string;
 }
 
 export function emptyUnitRow(): UnitRowDraft {
@@ -104,6 +108,8 @@ export function emptyUnitRow(): UnitRowDraft {
     turnStatus: undefined,
     subsidized: undefined,
     comment: '',
+    isHopper: false,
+    staleDate: '',
   };
 }
 
