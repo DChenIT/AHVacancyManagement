@@ -193,7 +193,7 @@ Save each file (Ctrl+S / Cmd+S) when done. **Don't touch `src/hooks/useIsAdmin.t
 Unlike some other Code Apps, this one doesn't have an automated script for this part — you'll create two Dataverse security roles through the portal. This gates two different things: whether someone can open the app and enter reports at all, and whether they see the Admin tab.
 
 1. Go to **https://admin.powerplatform.microsoft.com**, click your environment, then **Settings → Users + permissions → Security roles**.
-2. Click **+ New role**. Name it something like **"VM Staff"**. Under each of these tables, set the **Read** privilege to **Organization** level (this is a shared-portfolio app — everyone needs to see every community's data, not just their own), and set **Create** and **Write** to at least **User** level on `Vacancy Reports` and `Unit Updates` (so staff can submit reports):
+2. Click **+ New role**. Name it something like **"APP - AH Community Pulse"**. Under each of these tables, set the **Read** privilege to **Organization** level (this is a shared-portfolio app — everyone needs to see every community's data, not just their own), and set **Create** and **Write** to at least **User** level on `Vacancy Reports` and `Unit Updates` (so staff can submit reports):
    - Communities
    - Vacancy Reports
    - Unit Updates
@@ -201,10 +201,10 @@ Unlike some other Code Apps, this one doesn't have an automated script for this 
    - Applicant Update History
    - Report Configuration
 3. Save it.
-4. Click **+ New role** again. Name it **exactly** `APP - AH Vacancy Management Admin` — this exact string is checked by the app's code (`ADMIN_ROLE_NAME` in `src/hooks/useIsAdmin.ts`), so a typo here means nobody gets the Admin tab. Give this role **Write** access at Organization level on `App Settings` and `Communities`.
+4. Click **+ New role** again. Name it **exactly** `APP - AH Community Pulse Admin` — this exact string is checked by the app's code (`ADMIN_ROLE_NAME` in `src/hooks/useIsAdmin.ts`), so a typo here means nobody gets the Admin tab. Give this role **Write** access at Organization level on `App Settings` and `Communities`.
 5. Save it.
 
-> **If you'd rather use a different admin role name**, that's fine — just open `src/hooks/useIsAdmin.ts`, find the line `const ADMIN_ROLE_NAME = 'APP - AH Vacancy Management Admin';`, and change the string to match whatever you named the role. Rebuild and redeploy afterward (Step 10) for the change to take effect.
+> **If you'd rather use a different admin role name**, that's fine — just open `src/hooks/useIsAdmin.ts`, find the line `const ADMIN_ROLE_NAME = 'APP - AH Community Pulse Admin';`, and change the string to match whatever you named the role. Rebuild and redeploy afterward (Step 10) for the change to take effect.
 
 You'll assign these roles to actual people in Step 12, after the app exists to assign them to.
 
@@ -262,8 +262,8 @@ Sharing the app only lets people *open* it — it doesn't give them database per
 
 1. Go to `https://make.powerapps.com`, find your app, click the **⋯** menu → **Share**, and add the people who need access.
 2. Back in `admin.powerplatform.microsoft.com` → your environment → **Users + permissions → Users**, find each person (they need to have opened the app or otherwise signed into the environment at least once already, or the portal won't find them yet), open their record, and **Manage roles**:
-   - Everyone who submits reports gets **VM Staff**.
-   - Anyone who should see the Admin tab gets **VM Staff** *and* `APP - AH Vacancy Management Admin` (roles stack — this doesn't replace the base role).
+   - Everyone who submits reports gets **APP - AH Community Pulse**.
+   - Anyone who should see the Admin tab gets **APP - AH Community Pulse** *and* `APP - AH Community Pulse Admin` (roles stack — this doesn't replace the base role).
 
 ---
 

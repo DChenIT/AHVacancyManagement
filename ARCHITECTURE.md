@@ -144,13 +144,13 @@ Eight pairs total: the six `cr1e9_*` tables below, plus `Systemusers` and `Roles
 There's no hardcoded email allow-list — access is a real Dataverse security-role check:
 
 1. `useIsAdmin(email)` looks up the signed-in user's `systemuserid` from their UPN via `SystemusersService` (`domainname eq '<email>'`).
-2. It then queries `RolesService` for a role named exactly `APP - AH Vacancy Management Admin`, filtered further by an OData `any()` lambda against the `systemuserroles_association` N:N relationship — this checks whether *that specific user* holds *that specific role*, in one query. (The generated Code App SDK has no `$expand` support, but a plain `filter` string with `any()` works fine and doesn't need it.)
+2. It then queries `RolesService` for a role named exactly `APP - AH Community Pulse Admin`, filtered further by an OData `any()` lambda against the `systemuserroles_association` N:N relationship — this checks whether *that specific user* holds *that specific role*, in one query. (The generated Code App SDK has no `$expand` support, but a plain `filter` string with `any()` works fine and doesn't need it.)
 3. `App.tsx` uses the boolean result to decide whether the Admin tab renders at all.
 
 Two Dataverse security roles are assigned to real users (stacked additively — Dataverse roles don't "deny," they only add privileges):
 
-- **A base role** (e.g. "VM Staff") — Organization-scope Read on all six `cr1e9_*` tables (this is a shared-portfolio-visibility app; nobody's data is siloed to just their own community), plus Create/Write on `cr1e9_vacancyreports` and `cr1e9_unitupdates` so staff can actually submit reports.
-- **An additive admin role**, named **exactly** `APP - AH Vacancy Management Admin` — Write on `cr1e9_appsettings` and the admin-only fields on `cr1e9_communities`.
+- **A base role** ("APP - AH Community Pulse") — Organization-scope Read on all six `cr1e9_*` tables (this is a shared-portfolio-visibility app; nobody's data is siloed to just their own community), plus Create/Write on `cr1e9_vacancyreports` and `cr1e9_unitupdates` so staff can actually submit reports.
+- **An additive admin role**, named **exactly** `APP - AH Community Pulse Admin` — Write on `cr1e9_appsettings` and the admin-only fields on `cr1e9_communities`.
 
 **If the role is ever renamed in the target environment, `ADMIN_ROLE_NAME` in `useIsAdmin.ts` has to be updated to match** — there's no other place this name lives. Unlike the sibling Team Leave Calendar app, there's currently no `setup-security-role.ps1` script for this app; both roles are created and assigned by hand through the Power Platform admin center. See `DEPLOYMENT_GUIDE.md` for the walkthrough.
 

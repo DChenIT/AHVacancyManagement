@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { SystemusersService } from '../generated/services/SystemusersService';
 import { RolesService } from '../generated/services/RolesService';
 
-const ADMIN_ROLE_NAME = 'APP - AH Vacancy Management Admin';
+const ADMIN_ROLE_NAME = 'APP - AH Community Pulse Admin';
 
 // Real Dataverse-backed privilege check, replacing the old hardcoded email allow-list.
 // Resolves the signed-in user's systemuserid from their UPN, then checks whether they
