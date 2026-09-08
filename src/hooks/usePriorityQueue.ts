@@ -31,7 +31,7 @@ function daysBetween(from: string, to: string): number {
   return Math.round((new Date(to).getTime() - new Date(from).getTime()) / msPerDay);
 }
 
-export function usePriorityQueue(communities: Community[]) {
+export function usePriorityQueue(communities: Community[], asOfDate?: string) {
   const [entries, setEntries] = useState<PriorityEntry[]>([]);
   const [communitiesWithoutReport, setCommunitiesWithoutReport] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -48,9 +48,20 @@ export function usePriorityQueue(communities: Community[]) {
       });
       if (reportsResult.error) throw new Error(reportsResult.error.message ?? 'Failed to load reports');
 
-      // Newest-first order means the first report we see per community is its latest.
+      // Reports dated after asOfDate don't exist yet as far as this view is concerned - filtered
+      // out before anything else so "latest" and the streak-walk history below both mean
+      // "as of that date," not "as of today."
+      const reportsInScope = asOfDate
+        ? (reportsResult.data ?? []).filter(r => {
+            const date = r.cr1e9_reportdate ? r.cr1e9_reportdate.split('T')[0] : '';
+            return date <= asOfDate;
+          })
+        : (reportsResult.data ?? []);
+
+      // Newest-first order means the first report we see per community is its latest (as of
+      // asOfDate, if given).
       const latestByCommunity = new Map<string, { id: string; title: string; date: string }>();
-      for (const r of reportsResult.data ?? []) {
+      for (const r of reportsInScope) {
         const cid = r._cr1e9_community_value;
         if (!cid || latestByCommunity.has(cid)) continue;
         latestByCommunity.set(cid, {
@@ -62,10 +73,10 @@ export function usePriorityQueue(communities: Community[]) {
 
       const relevantReportIds = new Set([...latestByCommunity.values()].map(v => v.id));
 
-      // Newest-first per community too, since reportsResult was already ordered by date desc -
+      // Newest-first per community too, since reportsInScope was already ordered by date desc -
       // used below to walk backward through a community's report history for streak checks.
       const reportsByCommunity = new Map<string, { id: string }[]>();
-      for (const r of reportsResult.data ?? []) {
+      for (const r of reportsInScope) {
         const cid = r._cr1e9_community_value;
         if (!cid) continue;
         const list = reportsByCommunity.get(cid) ?? [];
@@ -144,7 +155,7 @@ export function usePriorityQueue(communities: Community[]) {
     } finally {
       setLoading(false);
     }
-  }, [communities]);
+  }, [communities, asOfDate]);
 
   useEffect(() => { refresh(); }, [refresh]);
 

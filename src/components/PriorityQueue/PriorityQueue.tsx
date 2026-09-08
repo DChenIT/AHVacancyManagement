@@ -33,10 +33,18 @@ function FastTrackBadge({ detail }: { detail: string }) {
   );
 }
 
+function todayIso(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
 export function PriorityQueue({ communities, communitiesLoading, onViewReport }: Props) {
-  const { entries, communitiesWithoutReport, loading, error } = usePriorityQueue(communities);
+  const [asOfDate, setAsOfDate] = useState(todayIso);
+  const today = todayIso();
+  const isToday = asOfDate === today;
+
+  const { entries, communitiesWithoutReport, loading, error } = usePriorityQueue(communities, asOfDate);
   const { portfolioVacancyGoal } = useAppSettings();
-  const { units: fastTrackUnits, loading: fastTrackLoading, error: fastTrackError } = useFastTrackUnits(communities);
+  const { units: fastTrackUnits, loading: fastTrackLoading, error: fastTrackError } = useFastTrackUnits(communities, asOfDate);
   const [sortMode, setSortMode] = useState<SortMode>('rate');
 
   const sortedEntries = useMemo(() => {
@@ -64,9 +72,39 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport }:
   return (
     <div style={{ padding: 20, overflowY: 'auto', height: '100%' }}>
       <h2 style={{ color: 'var(--text-primary)', fontSize: 18, marginTop: 0, marginBottom: 6 }}>Priority Queue</h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 0, marginBottom: 16 }}>
-        Ranked using each community's most recent report.
+      <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 0, marginBottom: 12 }}>
+        Ranked using each community's most recent report as of the date below.
       </p>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <label style={{ color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600 }} htmlFor="priority-queue-as-of">As of:</label>
+        <input
+          id="priority-queue-as-of"
+          type="date"
+          value={asOfDate}
+          max={today}
+          onChange={e => setAsOfDate(e.target.value || today)}
+          style={{
+            backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: '6px 10px', fontSize: 14,
+          }}
+        />
+        {!isToday && (
+          <>
+            <button onClick={() => setAsOfDate(today)} style={{
+              background: 'none', border: '1px solid var(--accent)', borderRadius: 6, color: 'var(--accent)',
+              padding: '6px 12px', fontSize: 13, fontWeight: 600,
+            }}>Jump to Today</button>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              backgroundColor: 'var(--warning-bg)', color: 'var(--warning)',
+              borderRadius: 12, padding: '3px 10px', fontSize: 13, fontWeight: 600,
+            }}>
+              <span aria-hidden="true">🕐</span>Viewing history as of {asOfDate}
+            </span>
+          </>
+        )}
+      </div>
 
       {!fastTrackLoading && !fastTrackError && fastTrackUnits.length > 0 && (
         <div style={{
@@ -151,7 +189,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport }:
             <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 860 }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                  {['#', 'Community', 'Vacancy Rate', 'Open / Total Units', 'Avg Days Vacant', 'Longest Vacant', 'Aging 30+ Days', 'Latest Report'].map(h => (
+                  {['#', 'Community', 'Vacancy Rate', 'Open / Total Units', 'Avg Days Vacant', 'Longest Vacant', 'Aging 30+ Days', 'Report Shown'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                   ))}
                 </tr>
@@ -207,7 +245,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport }:
             "Avg/longest days vacant" only counts units where staff entered a Vacant Since date on the report — it'll be blank for older reports and any unit missing that field.
             "Aging 30+ Days" counts units vacant 30 or more days, using the same Vacant Since date where it's filled in — and for the rows where it isn't, falls back to counting units open on 3+ consecutive reports in a row, so a unit doesn't slip through just because that date was never entered.
             {communitiesWithoutReport > 0 && (
-              <> {communitiesWithoutReport} {communitiesWithoutReport === 1 ? 'community has' : 'communities have'} no vacancy report yet and {communitiesWithoutReport === 1 ? "isn't" : "aren't"} included above.</>
+              <> {communitiesWithoutReport} {communitiesWithoutReport === 1 ? 'community has' : 'communities have'} no vacancy report {isToday ? 'yet' : `as of ${asOfDate}`} and {communitiesWithoutReport === 1 ? "isn't" : "aren't"} included above.</>
             )}
           </p>
         </>

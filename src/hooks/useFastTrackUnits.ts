@@ -22,7 +22,7 @@ export interface FastTrackUnit {
   reportDate: string;
 }
 
-export function useFastTrackUnits(communities: Community[]) {
+export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
   const [units, setUnits] = useState<FastTrackUnit[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,12 +41,15 @@ export function useFastTrackUnits(communities: Community[]) {
       });
       if (reportsResult.error) throw new Error(reportsResult.error.message ?? 'Failed to load reports');
 
-      // Newest-first order means the first report we see per community is its latest.
+      // Newest-first order means the first report we see per community (at or before asOfDate,
+      // if given) is the one that was "latest" as of that date.
       const latestByCommunity = new Map<string, { id: string; date: string }>();
       for (const r of reportsResult.data ?? []) {
         const cid = r._cr1e9_community_value;
         if (!cid || latestByCommunity.has(cid)) continue;
-        latestByCommunity.set(cid, { id: r.cr1e9_vacancyreportsid, date: r.cr1e9_reportdate ? r.cr1e9_reportdate.split('T')[0] : '' });
+        const date = r.cr1e9_reportdate ? r.cr1e9_reportdate.split('T')[0] : '';
+        if (asOfDate && date > asOfDate) continue;
+        latestByCommunity.set(cid, { id: r.cr1e9_vacancyreportsid, date });
       }
       const communityByReportId = new Map<string, { communityId: string; date: string }>();
       for (const [cid, latest] of latestByCommunity) {
@@ -96,7 +99,7 @@ export function useFastTrackUnits(communities: Community[]) {
     } finally {
       setLoading(false);
     }
-  }, [communities]);
+  }, [communities, asOfDate]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
