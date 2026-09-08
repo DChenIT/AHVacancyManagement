@@ -31,41 +31,103 @@ const ROLE_SHORT_LABELS: Record<TeamRole, string> = {
 };
 const ALL_ROLES = Object.keys(ROLE_SHORT_LABELS) as TeamRole[];
 
+const cellInputStyle: React.CSSProperties = {
+  flex: 1, minWidth: 0, fontSize: 12.5, padding: '3px 6px', borderRadius: 5,
+  border: '1px solid var(--border)', backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)',
+};
+
 // Clearing a role reuses assignTeamMember with a blank person - the underlying update just
 // writes empty strings to the name/email fields, which every other read site already treats
 // as "unassigned" (falsy checks in personMatchesUser / distinctValues / currentAssignee).
+// Each role is a live text box: typing searches the directory inline, picking a result saves
+// immediately, and the ✕ clears it - all without leaving this cell or the Team Assignment box above.
 function TeamCell({ community, assignTeamMember }: { community: Community; assignTeamMember: Props['assignTeamMember'] }) {
-  const [removingRole, setRemovingRole] = useState<TeamRole | null>(null);
+  const { search } = useOrgUserSearch();
+  const [editingRole, setEditingRole] = useState<TeamRole | null>(null);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<OrgUser[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [busyRole, setBusyRole] = useState<TeamRole | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const assigned = ALL_ROLES.filter(role => currentAssignee(community, role));
 
-  async function handleRemove(role: TeamRole) {
-    setRemovingRole(role);
+  useEffect(() => {
+    if (!editingRole || !query.trim()) { setResults([]); setSearching(false); return; }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      const found = await search(query);
+      if (!cancelled) { setResults(found); setSearching(false); }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [query, editingRole, search]);
+
+  async function save(role: TeamRole, person: { displayName: string; email: string }) {
+    setBusyRole(role);
     setError(null);
     try {
-      await assignTeamMember([community.id], role, { displayName: '', email: '' });
+      await assignTeamMember([community.id], role, person);
+      setEditingRole(null);
+      setQuery('');
+      setResults([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setRemovingRole(null);
+      setBusyRole(null);
     }
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {assigned.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 12.5, fontStyle: 'italic' }}>Unassigned</span>}
-      {assigned.map(role => (
-        <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
-          <span style={{ color: 'var(--text-muted)', fontWeight: 600, minWidth: 66 }}>{ROLE_SHORT_LABELS[role]}:</span>
-          <span style={{ color: 'var(--text-primary)' }}>{currentAssignee(community, role)}</span>
-          <button
-            onClick={() => handleRemove(role)}
-            disabled={removingRole === role}
-            title={`Remove ${ROLE_SHORT_LABELS[role]}`}
-            style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1 }}
-          >{removingRole === role ? '…' : '✕'}</button>
-        </div>
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      {ALL_ROLES.map(role => {
+        const name = currentAssignee(community, role);
+        const isEditing = editingRole === role;
+        return (
+          <div key={role} style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: 12.5, minWidth: 66, flexShrink: 0 }}>{ROLE_SHORT_LABELS[role]}:</span>
+              <input
+                type="text"
+                value={isEditing ? query : (name ?? '')}
+                placeholder="Search directory…"
+                onFocus={() => { setEditingRole(role); setQuery(''); }}
+                onChange={e => setQuery(e.target.value)}
+                onBlur={() => setTimeout(() => setEditingRole(prev => (prev === role ? null : prev)), 150)}
+                disabled={busyRole === role}
+                style={cellInputStyle}
+              />
+              {name && (
+                <button
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => save(role, { displayName: '', email: '' })}
+                  disabled={busyRole === role}
+                  title={`Remove ${ROLE_SHORT_LABELS[role]}`}
+                  style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 12, padding: 0, flexShrink: 0 }}
+                >✕</button>
+              )}
+            </div>
+            {isEditing && query.trim() && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, marginTop: 2,
+                backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 6,
+                maxHeight: 160, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              }}>
+                {searching && <div style={{ padding: '6px 8px', color: 'var(--text-muted)', fontSize: 12.5 }}>Searching…</div>}
+                {!searching && results.length === 0 && <div style={{ padding: '6px 8px', color: 'var(--text-muted)', fontSize: 12.5 }}>No matches.</div>}
+                {!searching && results.map(u => (
+                  <button
+                    key={u.id}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => save(role, u)}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '6px 8px', fontSize: 12.5, color: 'var(--text-primary)', cursor: 'pointer' }}
+                  >
+                    {u.displayName} <span style={{ color: 'var(--text-muted)', fontSize: 11.5 }}>{u.email}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
       {error && <span style={{ color: 'var(--danger)', fontSize: 11 }}>⚠ {error}</span>}
     </div>
   );
@@ -415,7 +477,7 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
                       <div style={{ color: 'var(--text-primary)' }}>{c.name}</div>
                       {c.code && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{c.code}</div>}
                     </td>
-                    <td style={{ padding: '8px 10px', minWidth: 190 }}>
+                    <td style={{ padding: '8px 10px', minWidth: 240 }}>
                       <TeamCell community={c} assignTeamMember={assignTeamMember} />
                     </td>
                     <td style={{ padding: 6, width: 110 }}>
