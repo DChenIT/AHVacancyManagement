@@ -116,6 +116,7 @@ One folder per screen, matching the five navigation tabs:
 | `useUnitStreaks` | `Cr1e9_unitupdatesesService` | Given a community's report history and a target report, walks backward up to 8 prior reports and counts each open unit's consecutive-open streak (matched by trimmed/lowercased unit number — units aren't a persistent Dataverse entity, each weekly report creates fresh child rows) |
 | `useFastTrackUnits` | `Cr1e9_vacancyreportsesService` + `Cr1e9_unitupdatesesService` | Portfolio-wide list of units currently "Submitted to Compliance" or "Corrections Requested" — feeds the Priority Queue's Fast-Track Approvals callout |
 | `useReportCompleteness` | `Cr1e9_vacancyreportsesService` | Portfolio-wide map of each community's latest report date, for the Dashboard's ✅/⚠️ "reported in the last 7 days" indicator |
+| `useOrgUserSearch` | `Office365UsersService` (Office 365 Users, not Dataverse) | Live company-directory search backing the Admin screen's Team Member Assignments people picker — a trimmed-down version of the sibling Team Leave Calendar project's proven `useOrgUsers.ts` pattern |
 
 ### 4. Generated services (`src/generated/`) — typed clients, not hand-written
 
@@ -157,13 +158,22 @@ Two Dataverse security roles are assigned to real users (stacked additively — 
 
 ## Community roster (`scripts/import-communities-csv.ps1`)
 
-The Communities table — including the RPS, RMS, Director, and Compliance Specialist assignments used by the Dashboard's role filters and "Show only my communities" — is seeded from a **manual CSV export** of a SharePoint list, not a live sync. `scripts/import-communities-csv.ps1`:
+The Communities table is seeded from a **manual CSV export** of a SharePoint list, not a live sync. `scripts/import-communities-csv.ps1`:
 
 - Upserts by matching on Community Code, so re-running with a fresh export updates changed contacts and adds newly-acquired properties without duplicating rows.
 - Never touches the "app-owned" fields (`cr1e9_hoppergoal`, `cr1e9_active`, `cr1e9_defaultreportrecipients`) — those are only ever set from inside the app's Admin screen, so a re-import can't clobber them.
 - Expects the raw SharePoint "export to CSV" format (a metadata line 1, real headers on line 2) — see the comment block at the top of the script for the exact column mapping.
+- Also writes the RPS/Director/RMS/Compliance Specialist **name** fields (no email — a raw CSV export doesn't carry one) — see "Team Member Assignments" below for how those same four fields get maintained afterward with real emails attached.
 
-A true live sync (SharePoint list change → Dataverse automatically) was deferred, not built. This was attempted once via a live SharePoint Online connector (`useCommunityDirectory.ts` / `SharePointOnlineService`, since removed) instead of a CSV import specifically for the RPS/RMS/Director/Compliance Specialist fields, since that data changes more often than the rest of the roster — but it was abandoned before ever being tested, after `npx power-apps init` turned out to fail against the work tenant entirely (a DNS/CLI issue unrelated to SharePoint, blocking *all* code deployment there, not just this feature — see `memory-bank.md`'s "Community directory: live SharePoint connector abandoned" entry). The RPS/RMS/Director/Compliance Specialist filters now live in the same CSV-import pattern as the rest of the roster, at the same refresh cadence. Revisit live sync if the `power-apps init` issue is ever resolved.
+A true live sync (SharePoint list change → Dataverse automatically) was deferred, not built. A live SharePoint Online connector was fully attempted for the RPS/RMS/Director/Compliance Specialist fields specifically (`useCommunityDirectory.ts` / a per-list `AHCommunitiesService`, both since removed) — connector setup and the generated service shape both ended up working correctly, but the actual runtime call failed with a 400 Bad Request caused by the SharePoint site URL getting double URL-encoded inside `@microsoft/power-apps`'s own data-fetching internals (pinned to `1.2.7`) — a bug in Microsoft's SDK, not fixable from this project's code. See `memory-bank.md`'s SharePoint-related entries for the full trail, including an earlier, unrelated `npx power-apps init` failure (specific to the tenant's Default environment, not SharePoint) that had to be solved first just to reach that point.
+
+## Team Member Assignments (Admin screen, Office 365 Users connector)
+
+Rather than keep chasing a live external sync for RPS/RMS/Director/Compliance Specialist, the Admin screen has its own **people picker** (`TeamAssignment` in `AdminScreen.tsx`, backed by `useOrgUserSearch.ts`) that searches the real company directory via the Office 365 Users connector and assigns someone to a role across any number of communities in one action — the app itself is the source of truth for these assignments going forward, editable in-app rather than synced from an external list.
+
+- `useOrgUserSearch.ts` is a trimmed-down version of the sibling Team Leave Calendar project's proven `useOrgUsers.ts`: keeps `Office365UsersService.SearchUser` plus the terminated-employee/company-domain filters, drops the full-alphabet directory sweep (not needed for type-to-search) and the IT-department restriction (this app needs the full staff directory, not just IT).
+- Four new columns carry the email half of each role: `cr1e9_regionalmanageremail`, `cr1e9_directoremail`, `cr1e9_regionalmaintenancesupervisoremail`, `cr1e9_compliancespecialistemail`. The CSV import only ever writes the name columns (no email available in a raw SharePoint export); the picker writes both together. Both paths coexist — CSV for bulk/initial seeding, the picker for day-to-day maintenance with better data quality.
+- `HomeDashboard.tsx`'s "Show only my communities" matching (`personMatchesUser`) checks email first, falling back to name — so communities touched by the picker match reliably by email, while CSV-only rows keep matching by name exactly as before.
 
 ---
 

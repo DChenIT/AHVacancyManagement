@@ -1,11 +1,203 @@
-import { useMemo, useState } from 'react';
-import type { Community } from '../../hooks/useCommunities';
+import { useEffect, useMemo, useState } from 'react';
+import type { Community, TeamRole } from '../../hooks/useCommunities';
 import { useAppSettings } from '../../hooks/useAppSettings';
+import { useOrgUserSearch, type OrgUser } from '../../hooks/useOrgUserSearch';
 
 interface Props {
   communities: Community[];
   communitiesLoading: boolean;
   updateCommunity: (id: string, changes: { hopperGoal?: number; active?: boolean; defaultReportRecipients?: string }) => Promise<void>;
+  assignTeamMember: (communityIds: string[], role: TeamRole, person: { displayName: string; email: string }) => Promise<void>;
+}
+
+const ROLE_OPTIONS: { value: TeamRole; label: string }[] = [
+  { value: 'regionalManager', label: 'Regional Property Supervisor (RPS)' },
+  { value: 'regionalMaintenanceSupervisor', label: 'Regional Maintenance Supervisor (RMS)' },
+  { value: 'director', label: 'Director' },
+  { value: 'complianceSpecialist', label: 'Compliance Specialist' },
+];
+
+function currentAssignee(c: Community, role: TeamRole): string | undefined {
+  switch (role) {
+    case 'regionalManager': return c.regionalManager;
+    case 'regionalMaintenanceSupervisor': return c.regionalMaintenanceSupervisor;
+    case 'director': return c.director;
+    case 'complianceSpecialist': return c.complianceSpecialist;
+  }
+}
+
+function TeamAssignment({ communities, assignTeamMember }: { communities: Community[]; assignTeamMember: Props['assignTeamMember'] }) {
+  const { search } = useOrgUserSearch();
+  const [role, setRole] = useState<TeamRole>('regionalManager');
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<OrgUser[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedPerson, setSelectedPerson] = useState<OrgUser | null>(null);
+  const [communitySearch, setCommunitySearch] = useState('');
+  const [selectedCommunityIds, setSelectedCommunityIds] = useState<Set<string>>(new Set());
+  const [assigning, setAssigning] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [assignSuccess, setAssignSuccess] = useState(false);
+
+  // Debounced live search as the admin types a name.
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); setSearching(false); return; }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      const found = await search(query);
+      if (!cancelled) { setResults(found); setSearching(false); }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [query, search]);
+
+  const filteredCommunities = useMemo(() => {
+    const q = communitySearch.trim().toLowerCase();
+    if (!q) return communities;
+    return communities.filter(c => c.name.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q));
+  }, [communities, communitySearch]);
+
+  function toggleCommunity(id: string) {
+    setSelectedCommunityIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleAssign() {
+    if (!selectedPerson || selectedCommunityIds.size === 0) return;
+    setAssigning(true);
+    setAssignError(null);
+    setAssignSuccess(false);
+    try {
+      await assignTeamMember([...selectedCommunityIds], role, selectedPerson);
+      setAssignSuccess(true);
+      setSelectedPerson(null);
+      setSelectedCommunityIds(new Set());
+    } catch (e) {
+      setAssignError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  return (
+    <div style={{
+      backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10,
+      padding: '16px 18px', marginBottom: 28, maxWidth: 640,
+    }}>
+      <div style={{ color: 'var(--text-primary)', fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Team Member Assignments</div>
+      <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 0, marginBottom: 14 }}>
+        Look someone up in the company directory and assign them to a role across one or more communities at once.
+      </p>
+
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div style={{ minWidth: 220 }}>
+          <label style={{ color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, marginBottom: 4, display: 'block' }}>Role</label>
+          <select
+            value={role}
+            onChange={e => { setRole(e.target.value as TeamRole); setAssignSuccess(false); }}
+            style={inputStyle}
+          >
+            {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+
+        <div style={{ minWidth: 260, flex: 1, position: 'relative' }}>
+          <label style={{ color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, marginBottom: 4, display: 'block' }}>Person</label>
+          {selectedPerson ? (
+            <div style={{
+              ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              backgroundColor: 'var(--bg-subtle)',
+            }}>
+              <span>{selectedPerson.displayName} <span style={{ color: 'var(--text-muted)' }}>({selectedPerson.email})</span></span>
+              <button onClick={() => setSelectedPerson(null)} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 14, cursor: 'pointer' }}>✕</button>
+            </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                placeholder="Search the directory by name…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                style={inputStyle}
+              />
+              {query.trim() && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, marginTop: 4,
+                  backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8,
+                  maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                }}>
+                  {searching && <div style={{ padding: '8px 10px', color: 'var(--text-muted)', fontSize: 13 }}>Searching…</div>}
+                  {!searching && results.length === 0 && (
+                    <div style={{ padding: '8px 10px', color: 'var(--text-muted)', fontSize: 13 }}>No matches.</div>
+                  )}
+                  {!searching && results.map(u => (
+                    <button
+                      key={u.id}
+                      onClick={() => { setSelectedPerson(u); setQuery(''); setResults([]); }}
+                      style={{
+                        display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none',
+                        padding: '8px 10px', fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer',
+                      }}
+                    >
+                      {u.displayName} <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{u.email}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <label style={{ color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, marginBottom: 4, display: 'block' }}>
+        Apply to communities ({selectedCommunityIds.size} selected)
+      </label>
+      <input
+        type="text"
+        placeholder="Search properties…"
+        value={communitySearch}
+        onChange={e => setCommunitySearch(e.target.value)}
+        style={{ ...inputStyle, marginBottom: 8 }}
+      />
+      <div style={{
+        maxHeight: 180, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8,
+        backgroundColor: 'var(--bg-base)', marginBottom: 14,
+      }}>
+        {filteredCommunities.map(c => {
+          const current = currentAssignee(c, role);
+          return (
+            <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', fontSize: 14, cursor: 'pointer' }}>
+              <input type="checkbox" checked={selectedCommunityIds.has(c.id)} onChange={() => toggleCommunity(c.id)} />
+              <span style={{ color: 'var(--text-primary)' }}>{c.name}</span>
+              {current && <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>— currently {current}</span>}
+            </label>
+          );
+        })}
+        {filteredCommunities.length === 0 && (
+          <div style={{ padding: '8px 10px', color: 'var(--text-muted)', fontSize: 14 }}>No properties match.</div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button
+          onClick={handleAssign}
+          disabled={!selectedPerson || selectedCommunityIds.size === 0 || assigning}
+          style={{
+            backgroundColor: 'var(--accent)', color: 'var(--accent-fg)', border: 'none', borderRadius: 6,
+            padding: '8px 16px', fontSize: 14, fontWeight: 600,
+            opacity: (!selectedPerson || selectedCommunityIds.size === 0 || assigning) ? 0.6 : 1,
+          }}
+        >
+          {assigning ? 'Assigning…' : `Assign to ${selectedCommunityIds.size || ''} ${selectedCommunityIds.size === 1 ? 'Community' : 'Communities'}`}
+        </button>
+        {assignSuccess && <span style={{ color: 'var(--success)', fontSize: 14 }}>✓ Assigned</span>}
+        {assignError && <span style={{ color: 'var(--danger)', fontSize: 14 }}>⚠ {assignError}</span>}
+      </div>
+    </div>
+  );
 }
 
 const inputStyle: React.CSSProperties = {
@@ -27,7 +219,7 @@ function isDirty(c: Community, d: CommunityDraft): boolean {
   return c.hopperGoal !== d.hopperGoal || c.active !== d.active || (c.defaultReportRecipients ?? '') !== d.defaultReportRecipients;
 }
 
-export function AdminScreen({ communities, communitiesLoading, updateCommunity }: Props) {
+export function AdminScreen({ communities, communitiesLoading, updateCommunity, assignTeamMember }: Props) {
   const { portfolioVacancyGoal, loading: settingsLoading, updatePortfolioVacancyGoal } = useAppSettings();
   const [goalInput, setGoalInput] = useState<number | null>(null);
   const [goalSaving, setGoalSaving] = useState(false);
@@ -113,6 +305,8 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity }
           </div>
         )}
       </div>
+
+      <TeamAssignment communities={communities} assignTeamMember={assignTeamMember} />
 
       <div style={{ color: 'var(--text-primary)', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>Communities</div>
       <input

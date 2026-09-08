@@ -30,11 +30,13 @@ function Tile({ label, value, accent }: { label: string; value: string | number;
   );
 }
 
-// Matches by name only, since this is a plain-text CSV-imported field (not a SharePoint
-// Person/Group lookup with an email) - case-insensitive, trimmed.
-function nameMatchesUser(fieldValue: string | undefined, userDisplayName?: string): boolean {
-  if (!fieldValue || !userDisplayName) return false;
-  return fieldValue.trim().toLowerCase() === userDisplayName.trim().toLowerCase();
+// Prefers email (reliable, available for anyone assigned via the Admin screen's people picker)
+// and falls back to name (all that's available for rows only ever touched by the CSV roster
+// import, which has no email) - case-insensitive, trimmed either way.
+function personMatchesUser(name: string | undefined, email: string | undefined, userEmail?: string, userDisplayName?: string): boolean {
+  if (email && userEmail && email.trim().toLowerCase() === userEmail.trim().toLowerCase()) return true;
+  if (name && userDisplayName && name.trim().toLowerCase() === userDisplayName.trim().toLowerCase()) return true;
+  return false;
 }
 
 function distinctValues(communities: Community[], role: DirectoryRole): string[] {
@@ -66,13 +68,13 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
   // Default "Show only my communities" on once communities have loaded, if the signed-in user
   // is actually assigned somewhere - one-time so it doesn't fight with the user unchecking it.
   useEffect(() => {
-    if (autoDefaultedRef.current || communitiesLoading || communities.length === 0 || !currentUser?.displayName) return;
+    if (autoDefaultedRef.current || communitiesLoading || communities.length === 0 || !currentUser) return;
     autoDefaultedRef.current = true;
     const assignedSomewhere = communities.some(c =>
-      nameMatchesUser(c.regionalManager, currentUser.displayName) ||
-      nameMatchesUser(c.regionalMaintenanceSupervisor, currentUser.displayName) ||
-      nameMatchesUser(c.director, currentUser.displayName) ||
-      nameMatchesUser(c.complianceSpecialist, currentUser.displayName)
+      personMatchesUser(c.regionalManager, c.regionalManagerEmail, currentUser.email, currentUser.displayName) ||
+      personMatchesUser(c.regionalMaintenanceSupervisor, c.regionalMaintenanceSupervisorEmail, currentUser.email, currentUser.displayName) ||
+      personMatchesUser(c.director, c.directorEmail, currentUser.email, currentUser.displayName) ||
+      personMatchesUser(c.complianceSpecialist, c.complianceSpecialistEmail, currentUser.email, currentUser.displayName)
     );
     if (assignedSomewhere) setShowMyCommunities(true);
   }, [communitiesLoading, communities, currentUser]);
@@ -82,12 +84,12 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
     const q = search.trim().toLowerCase();
     if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q));
 
-    if (showMyCommunities && currentUser?.displayName) {
+    if (showMyCommunities && currentUser) {
       list = list.filter(c =>
-        nameMatchesUser(c.regionalManager, currentUser.displayName) ||
-        nameMatchesUser(c.regionalMaintenanceSupervisor, currentUser.displayName) ||
-        nameMatchesUser(c.director, currentUser.displayName) ||
-        nameMatchesUser(c.complianceSpecialist, currentUser.displayName)
+        personMatchesUser(c.regionalManager, c.regionalManagerEmail, currentUser.email, currentUser.displayName) ||
+        personMatchesUser(c.regionalMaintenanceSupervisor, c.regionalMaintenanceSupervisorEmail, currentUser.email, currentUser.displayName) ||
+        personMatchesUser(c.director, c.directorEmail, currentUser.email, currentUser.displayName) ||
+        personMatchesUser(c.complianceSpecialist, c.complianceSpecialistEmail, currentUser.email, currentUser.displayName)
       );
     }
     if (roleFilters.regionalManager) list = list.filter(c => c.regionalManager === roleFilters.regionalManager);

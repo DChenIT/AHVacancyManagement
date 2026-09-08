@@ -21,7 +21,7 @@ export default function App() {
   const [previewTarget, setPreviewTarget] = useState<{ communityId: string; reportId: string } | undefined>();
   const [editTarget, setEditTarget] = useState<{ communityId: string; reportId: string } | undefined>();
 
-  const { communities, loading: communitiesLoading, updateCommunity } = useCommunities();
+  const { communities, loading: communitiesLoading, updateCommunity, assignTeamMember } = useCommunities();
   const { currentUser } = useCurrentUser();
   const { isAdmin: userIsAdmin } = useIsAdmin(currentUser?.email);
 
@@ -118,7 +118,7 @@ export default function App() {
           />
         )}
         {activeTab === 'admin' && userIsAdmin && (
-          <AdminScreen communities={communities} communitiesLoading={communitiesLoading} updateCommunity={updateCommunity} />
+          <AdminScreen communities={communities} communitiesLoading={communitiesLoading} updateCommunity={updateCommunity} assignTeamMember={assignTeamMember} />
         )}
       </main>
     </div>

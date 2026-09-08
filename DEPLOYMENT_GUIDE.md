@@ -219,7 +219,21 @@ The Communities table starts out empty — there's no built-in sample data. Pick
   ```powershell
   .\scripts\import-communities-csv.ps1 -CsvPath "C:\path\to\export.csv" -OrgUrl "https://yourorg.crm.dynamics.com"
   ```
-  This is safe to re-run any time your roster changes — it matches existing rows by Community Code and only adds/updates, never duplicates. It expects the exact column names a raw SharePoint CSV export produces (Title, Community Code, Administrator, Regional Property Supervisor, Director, Asset Manager, Regional Maintenance Supervisor, Compliance Specialist, # of units) — see the comment block at the top of the script if your columns are named differently. The last four (RPS, Director, RMS, Compliance Specialist) also drive the Dashboard's role filters and "Show only my communities" checkbox.
+  This is safe to re-run any time your roster changes — it matches existing rows by Community Code and only adds/updates, never duplicates. It expects the exact column names a raw SharePoint CSV export produces (Title, Community Code, Administrator, Regional Property Supervisor, Director, Asset Manager, Regional Maintenance Supervisor, Compliance Specialist, # of units) — see the comment block at the top of the script if your columns are named differently. The last four (RPS, Director, RMS, Compliance Specialist) also drive the Dashboard's role filters and "Show only my communities" checkbox — the CSV import gives them a name but no email; the next step's people picker is how they get a real email attached.
+
+---
+
+## Optional: Connect Office 365 Users (Team Member Assignments people picker)
+
+The Admin screen's "Team Member Assignments" section lets an admin search the company directory and assign someone (RPS, RMS, Director, Compliance Specialist) to one or more communities at once. Skipping this step doesn't break anything else — the picker just won't return any search results, and RPS/RMS/Director/Compliance Specialist stay whatever the CSV import set them to (name only, no email).
+
+1. `make.powerapps.com` → your environment → **Connections** → **+ New connection** → search **Office 365 Users** → **Create** → sign in.
+2. `npx power-apps list-connections` → find its connection ID.
+3. ```bash
+   npx power-apps add-data-source -a office365users -c <connection-id>
+   ```
+4. Open `src/hooks/useOrgUserSearch.ts` and check `ALLOWED_EMAIL_DOMAIN` (`@humangood.org` by default) — change it to your own organization's domain, or the picker will never return any matches.
+5. `npm run build` then `npx power-apps push`.
 
 ---
 
