@@ -26,6 +26,51 @@ function currentAssignee(c: Community, role: TeamRole): string | undefined {
   }
 }
 
+const ROLE_SHORT_LABELS: Record<TeamRole, string> = {
+  regionalManager: 'RPS', regionalMaintenanceSupervisor: 'RMS', director: 'Director', complianceSpecialist: 'Compliance',
+};
+const ALL_ROLES = Object.keys(ROLE_SHORT_LABELS) as TeamRole[];
+
+// Clearing a role reuses assignTeamMember with a blank person - the underlying update just
+// writes empty strings to the name/email fields, which every other read site already treats
+// as "unassigned" (falsy checks in personMatchesUser / distinctValues / currentAssignee).
+function TeamCell({ community, assignTeamMember }: { community: Community; assignTeamMember: Props['assignTeamMember'] }) {
+  const [removingRole, setRemovingRole] = useState<TeamRole | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const assigned = ALL_ROLES.filter(role => currentAssignee(community, role));
+
+  async function handleRemove(role: TeamRole) {
+    setRemovingRole(role);
+    setError(null);
+    try {
+      await assignTeamMember([community.id], role, { displayName: '', email: '' });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRemovingRole(null);
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {assigned.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 12.5, fontStyle: 'italic' }}>Unassigned</span>}
+      {assigned.map(role => (
+        <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
+          <span style={{ color: 'var(--text-muted)', fontWeight: 600, minWidth: 66 }}>{ROLE_SHORT_LABELS[role]}:</span>
+          <span style={{ color: 'var(--text-primary)' }}>{currentAssignee(community, role)}</span>
+          <button
+            onClick={() => handleRemove(role)}
+            disabled={removingRole === role}
+            title={`Remove ${ROLE_SHORT_LABELS[role]}`}
+            style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 12, padding: 0, lineHeight: 1 }}
+          >{removingRole === role ? '…' : '✕'}</button>
+        </div>
+      ))}
+      {error && <span style={{ color: 'var(--danger)', fontSize: 11 }}>⚠ {error}</span>}
+    </div>
+  );
+}
+
 function TeamAssignment({ communities, assignTeamMember }: { communities: Community[]; assignTeamMember: Props['assignTeamMember'] }) {
   const { search } = useOrgUserSearch();
   const [role, setRole] = useState<TeamRole>('regionalManager');
@@ -219,6 +264,15 @@ function isDirty(c: Community, d: CommunityDraft): boolean {
   return c.hopperGoal !== d.hopperGoal || c.active !== d.active || (c.defaultReportRecipients ?? '') !== d.defaultReportRecipients;
 }
 
+function distinctAssignees(communities: Community[], role: TeamRole): string[] {
+  const seen = new Set<string>();
+  for (const c of communities) {
+    const name = currentAssignee(c, role);
+    if (name) seen.add(name);
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b));
+}
+
 export function AdminScreen({ communities, communitiesLoading, updateCommunity, assignTeamMember }: Props) {
   const { portfolioVacancyGoal, loading: settingsLoading, updatePortfolioVacancyGoal } = useAppSettings();
   const [goalInput, setGoalInput] = useState<number | null>(null);
@@ -227,16 +281,23 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
   const [goalError, setGoalError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
+  const [teamFilters, setTeamFilters] = useState<Record<TeamRole, string>>({
+    regionalManager: '', regionalMaintenanceSupervisor: '', director: '', complianceSpecialist: '',
+  });
   const [drafts, setDrafts] = useState<Record<string, CommunityDraft>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [communityErrors, setCommunityErrors] = useState<Record<string, string>>({});
 
   const filtered = useMemo(() => {
+    let list = communities;
     const q = search.trim().toLowerCase();
-    if (!q) return communities;
-    return communities.filter(c => c.name.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q));
-  }, [communities, search]);
+    if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q));
+    for (const role of ALL_ROLES) {
+      if (teamFilters[role]) list = list.filter(c => currentAssignee(c, role) === teamFilters[role]);
+    }
+    return list;
+  }, [communities, search, teamFilters]);
 
   function draftFor(c: Community): CommunityDraft {
     return drafts[c.id] ?? draftFrom(c);
@@ -309,13 +370,28 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
       <TeamAssignment communities={communities} assignTeamMember={assignTeamMember} />
 
       <div style={{ color: 'var(--text-primary)', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>Communities</div>
-      <input
-        type="text"
-        placeholder="Search properties…"
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        style={{ ...inputStyle, maxWidth: 280, marginBottom: 12 }}
-      />
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <input
+          type="text"
+          placeholder="Search properties…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ ...inputStyle, maxWidth: 280 }}
+        />
+        {ALL_ROLES.map(role => (
+          <select
+            key={role}
+            style={{ ...inputStyle, maxWidth: 200 }}
+            value={teamFilters[role]}
+            onChange={e => setTeamFilters(prev => ({ ...prev, [role]: e.target.value }))}
+          >
+            <option value="">{ROLE_SHORT_LABELS[role]}: All</option>
+            {distinctAssignees(communities, role).map(name => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        ))}
+      </div>
 
       {communitiesLoading ? (
         <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>Loading…</p>
@@ -324,7 +400,7 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
           <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 760 }}>
             <thead>
               <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                {['Community', 'Hopper Goal', 'Active', 'Default Report Recipients', ''].map(h => (
+                {['Community', 'Team', 'Hopper Goal', 'Active', 'Default Report Recipients', ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                 ))}
               </tr>
@@ -338,6 +414,9 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
                     <td style={{ padding: '8px 10px', fontSize: 14 }}>
                       <div style={{ color: 'var(--text-primary)' }}>{c.name}</div>
                       {c.code && <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{c.code}</div>}
+                    </td>
+                    <td style={{ padding: '8px 10px', minWidth: 190 }}>
+                      <TeamCell community={c} assignTeamMember={assignTeamMember} />
                     </td>
                     <td style={{ padding: 6, width: 110 }}>
                       <input
@@ -381,7 +460,7 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>No properties match.</td></tr>
+                <tr><td colSpan={6} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>No properties match.</td></tr>
               )}
             </tbody>
           </table>
