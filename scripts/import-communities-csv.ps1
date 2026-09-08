@@ -41,9 +41,14 @@ if (-not $token) { Write-Error "Could not get token. Run 'az login' first."; exi
 $headers = @{ Authorization = "Bearer $token"; "Content-Type" = "application/json"; "OData-MaxVersion" = "4.0"; "OData-Version" = "4.0"; Accept = "application/json" }
 $base = "$OrgUrl/api/data/v9.2"
 
-# Line 1 of a SharePoint CSV export is a ListSchema metadata blob, not data - skip it.
+# Some SharePoint CSV exports put a ListSchema metadata blob on line 1 before the real
+# header row - skip it only when line 1 doesn't already look like the real header.
 $lines = Get-Content -Path $CsvPath -Encoding UTF8
-$csvContent = ($lines[1..($lines.Count - 1)] -join "`n")
+if ($lines[0] -match '"?Title"?' -and $lines[0] -match '"?Community Code"?') {
+    $csvContent = ($lines -join "`n")
+} else {
+    $csvContent = ($lines[1..($lines.Count - 1)] -join "`n")
+}
 $rows = $csvContent | ConvertFrom-Csv
 Write-Host "Found $($rows.Count) rows in CSV." -ForegroundColor Cyan
 

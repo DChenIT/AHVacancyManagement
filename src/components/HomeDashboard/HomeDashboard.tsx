@@ -148,7 +148,7 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
               >
                 <option value="">{ROLE_LABELS[role]}: All</option>
                 {distinctValues(communities, role).map(name => (
-                  <option key={name} value={name}>{ROLE_LABELS[role]}: {name}</option>
+                  <option key={name} value={name}>{name}</option>
                 ))}
               </select>
             </div>
