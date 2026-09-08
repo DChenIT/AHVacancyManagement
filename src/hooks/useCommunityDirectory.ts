@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
-import { SharePointOnlineService } from '../generated/services/SharePointOnlineService';
+import { AHCommunitiesService } from '../generated/services/AHCommunitiesService';
 
 // Separate from Dataverse and read live, not imported like the community roster CSV - this
-// SharePoint list changes often, so a periodic import would go stale. List name confirmed by
-// the user (2026-09-08) - the "Directory" view in that URL is just a SharePoint UI filter and
-// doesn't need to appear here; GetItems reads the whole list regardless of which view it's
-// normally browsed through.
-const DIRECTORY_SITE_URL = 'https://humangood.sharepoint.com/sites/AHCommunitiesAnalyst';
-const DIRECTORY_LIST_NAME = 'AH Communities';
+// SharePoint list changes often, so a periodic import would go stale. Confirmed 2026-09-08: the
+// SharePoint connector generates one typed service PER LIST (AHCommunitiesService), the same
+// per-table pattern as Dataverse - not a single shared SharePointOnlineService.GetItems/table
+// call, which is what an earlier attempt at this file incorrectly assumed based on generic
+// connector documentation that didn't match this CLI version's actual output.
+//
+// Person/Group columns (RPS, RMS, Director, ComplianceSpecialist) come back as rich objects with
+// DisplayName + Email (see AHCommunitiesModel.ts's *Value interfaces) - real email is available,
+// so matching prefers it over display name.
+
+interface PersonField {
+  DisplayName?: string;
+  Email?: string;
+}
 
 export interface DirectoryPerson {
-  id?: number;
   displayName: string;
   email?: string;
 }
@@ -23,19 +30,9 @@ export interface DirectoryEntry {
   complianceSpecialist?: DirectoryPerson;
 }
 
-// Person/Group columns come back as a lookup-style object ({Id, Value}) per the SharePoint
-// connector's documented shape - Value is the display name. Some connector versions also
-// surface Email/Claims alongside it; checked defensively here since this can't be verified
-// against a real connection from this dev environment (cross-tenant). If email never shows up
-// once this runs for real, matching falls back to display-name comparison automatically.
-function toPerson(raw: unknown): DirectoryPerson | undefined {
-  if (!raw || typeof raw !== 'object') return undefined;
-  const r = raw as Record<string, unknown>;
-  const displayName = (r.Value ?? r.DisplayName ?? r.displayName) as string | undefined;
-  if (!displayName) return undefined;
-  const email = (r.Email ?? r.EMail ?? r.email) as string | undefined;
-  const id = (r.Id ?? r.id) as number | undefined;
-  return { id, displayName, email };
+function toPerson(raw?: PersonField): DirectoryPerson | undefined {
+  if (!raw?.DisplayName) return undefined;
+  return { displayName: raw.DisplayName, email: raw.Email || undefined };
 }
 
 export function personMatchesUser(person: DirectoryPerson | undefined, userEmail?: string, userDisplayName?: string): boolean {
@@ -54,26 +51,25 @@ export function useCommunityDirectory() {
     setLoading(true);
     setError(null);
     try {
-      const result = await SharePointOnlineService.GetItems({
-        dataset: DIRECTORY_SITE_URL,
-        table: DIRECTORY_LIST_NAME,
-      });
+      // No `select` here (unlike the Dataverse hooks) - the SharePoint connector's field names
+      // include special characters requiring bracket access (e.g. "Administrator#Claims"), and
+      // this list is small (~100 rows), so fetching full rows and picking out the 4 fields we
+      // want client-side avoids any select-syntax guesswork against a connector we can't test
+      // directly from dev.
+      const result = await AHCommunitiesService.getAll();
       if (result.error) {
         setError(result.error.message ?? 'Failed to load community directory');
         setEntries([]);
         return;
       }
-      const mapped: DirectoryEntry[] = (result.value ?? [])
-        .map((raw): DirectoryEntry => {
-          const item = raw as Record<string, unknown>;
-          return {
-            communityTitle: String(item.Title ?? '').trim(),
-            rps: toPerson(item.RPS),
-            rms: toPerson(item.RMS),
-            director: toPerson(item.Director),
-            complianceSpecialist: toPerson(item.ComplianceSpecialist),
-          };
-        })
+      const mapped: DirectoryEntry[] = (result.data ?? [])
+        .map(raw => ({
+          communityTitle: (raw.Title ?? '').trim(),
+          rps: toPerson(raw.RPS),
+          rms: toPerson(raw.RMS),
+          director: toPerson(raw.Director),
+          complianceSpecialist: toPerson(raw.ComplianceSpecialist),
+        }))
         .filter(e => e.communityTitle);
       setEntries(mapped);
     } catch (e) {
