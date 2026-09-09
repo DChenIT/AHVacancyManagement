@@ -48,25 +48,6 @@ function distinctValues(communities: Community[], role: DirectoryRole): string[]
   return [...seen].sort((a, b) => a.localeCompare(b));
 }
 
-// Unified across all 4 roles, unlike distinctValues (per-role) - lets someone pick their own
-// name once without needing to know which role category (RPS/RMS/Director/Compliance) they're in.
-const ALL_DIRECTORY_ROLES: DirectoryRole[] = ['regionalManager', 'regionalMaintenanceSupervisor', 'director', 'complianceSpecialist'];
-
-function distinctTeamMembers(communities: Community[]): string[] {
-  const seen = new Set<string>();
-  for (const c of communities) {
-    for (const role of ALL_DIRECTORY_ROLES) {
-      const v = c[role];
-      if (v) seen.add(v);
-    }
-  }
-  return [...seen].sort((a, b) => a.localeCompare(b));
-}
-
-function communityHasTeamMember(c: Community, name: string): boolean {
-  return ALL_DIRECTORY_ROLES.some(role => c[role] === name);
-}
-
 const filterSelectStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)',
   border: '1px solid var(--border)', borderRadius: 6, padding: '5px 6px', fontSize: 13,
@@ -76,7 +57,6 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
   const [communityId, setCommunityId] = useState<string>('');
   const [search, setSearch] = useState('');
   const [showMyCommunities, setShowMyCommunities] = useState(false);
-  const [teamMemberFilter, setTeamMemberFilter] = useState('');
   const [roleFilters, setRoleFilters] = useState<Record<DirectoryRole, string>>({
     regionalManager: '', regionalMaintenanceSupervisor: '', director: '', complianceSpecialist: '',
   });
@@ -116,10 +96,9 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
     if (roleFilters.regionalMaintenanceSupervisor) list = list.filter(c => c.regionalMaintenanceSupervisor === roleFilters.regionalMaintenanceSupervisor);
     if (roleFilters.director) list = list.filter(c => c.director === roleFilters.director);
     if (roleFilters.complianceSpecialist) list = list.filter(c => c.complianceSpecialist === roleFilters.complianceSpecialist);
-    if (teamMemberFilter) list = list.filter(c => communityHasTeamMember(c, teamMemberFilter));
 
     return list;
-  }, [communities, search, showMyCommunities, roleFilters, teamMemberFilter, currentUser]);
+  }, [communities, search, showMyCommunities, roleFilters, currentUser]);
 
   const { reports, loading: reportsLoading } = useVacancyReports(communityId || undefined);
   const latestReport = reports[0];
@@ -156,18 +135,18 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
         </div>
 
         <div style={{ padding: '0 14px 12px' }}>
-          <label style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Team Member</label>
+          <label style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block' }}>Community</label>
           <select
-            value={teamMemberFilter}
-            onChange={e => setTeamMemberFilter(e.target.value)}
+            value={communityId}
+            onChange={e => setCommunityId(e.target.value)}
             style={{
               width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)',
               border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 14, fontWeight: 600,
             }}
           >
-            <option value="">All Team Members</option>
-            {distinctTeamMembers(communities).map(name => (
-              <option key={name} value={name}>{name}</option>
+            <option value="">Select…</option>
+            {[...communities].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>
