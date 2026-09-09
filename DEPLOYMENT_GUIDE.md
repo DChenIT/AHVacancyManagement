@@ -192,16 +192,32 @@ Save each file (Ctrl+S / Cmd+S) when done. **Don't touch `src/hooks/useIsAdmin.t
 
 Unlike some other Code Apps, this one doesn't have an automated script for this part — you'll create two Dataverse security roles through the portal. This gates two different things: whether someone can open the app and enter reports at all, and whether they see the Admin tab.
 
+Beyond the obvious Read/Create/Write, the app also sets a lookup at creation time in two places (a new report binds itself to its Community; a new unit row binds itself to its Report) — Dataverse treats setting a lookup at create as an associate operation, which needs **Append** on the record being attached and **Append To** on the record it's attaching to, on top of Create. Missing these produces a `PrivilegeDenied` / `prvAppendTo...` error the first time someone tries the affected action, even though Create/Write alone look sufficient. Both tables below already account for this.
+
 1. Go to **https://admin.powerplatform.microsoft.com**, click your environment, then **Settings → Users + permissions → Security roles**.
-2. Click **+ New role**. Name it something like **"APP - AH Community Pulse"**. Under each of these tables, set the **Read** privilege to **Organization** level (this is a shared-portfolio app — everyone needs to see every community's data, not just their own), and set **Create** and **Write** to at least **User** level on `Vacancy Reports` and `Unit Updates` (so staff can submit reports):
-   - Communities
-   - Vacancy Reports
-   - Unit Updates
-   - App Settings
-   - Applicant Update History
-   - Report Configuration
+2. Click **+ New role**. Name it something like **"APP - AH Community Pulse"**. Set these privileges (staff can only edit/delete records they personally created — that's intentional, Create/Write/Delete stay at **User** level; only the admin role below can touch anyone else's):
+
+   | Table | Read | Create | Write | Delete | Append | Append To |
+   |---|---|---|---|---|---|---|
+   | Communities | Organization | | | | | Organization |
+   | Vacancy Reports | Organization | User | User | | User | User |
+   | Unit Updates | Organization | User | User | User | User | |
+   | App Settings | Organization | | | | | |
+   | Applicant Update History | Organization | | | | | |
+   | Report Configuration | Organization | | | | | |
+
+   Communities' **Append To** has to be Organization level (not User) even though everything else on this role is User-scoped — staff didn't create the Community rows (the CSV import / admin did), so a narrower level would block filing a report against almost every community.
 3. Save it.
-4. Click **+ New role** again. Name it **exactly** `APP - AH Community Pulse Admin` — this exact string is checked by the app's code (`ADMIN_ROLE_NAME` in `src/hooks/useIsAdmin.ts`), so a typo here means nobody gets the Admin tab. Give this role **Write** access at Organization level on `App Settings` and `Communities`.
+4. Click **+ New role** again. Name it **exactly** `APP - AH Community Pulse Admin` — this exact string is checked by the app's code (`ADMIN_ROLE_NAME` in `src/hooks/useIsAdmin.ts`), so a typo here means nobody gets the Admin tab. This role is additive on top of the base role above (Dataverse roles stack), so it only needs the *extra* privileges an admin has beyond a regular staff member — the ability to touch App Settings/Communities at all, plus editing or deleting anyone else's reports and units, not just their own:
+
+   | Table | Write | Create | Delete |
+   |---|---|---|---|
+   | App Settings | Organization | Organization | |
+   | Communities | Organization | | |
+   | Vacancy Reports | Organization | | Organization |
+   | Unit Updates | Organization | | Organization |
+
+   App Settings needs **Create** (not just Write) because the "Global" settings row is self-healing — if it doesn't exist yet in a given environment (e.g. right after a fresh solution import, which brings the table schema but not its seeded row), the first save creates it instead of failing.
 5. Save it.
 
 > **If you'd rather use a different admin role name**, that's fine — just open `src/hooks/useIsAdmin.ts`, find the line `const ADMIN_ROLE_NAME = 'APP - AH Community Pulse Admin';`, and change the string to match whatever you named the role. Rebuild and redeploy afterward (Step 10) for the change to take effect.
