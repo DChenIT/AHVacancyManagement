@@ -89,6 +89,13 @@ export default function App() {
         </button>
       </header>
 
+      <div style={{
+        backgroundColor: 'var(--info-bg)', color: 'var(--info)', borderBottom: '1px solid var(--border)',
+        padding: '7px 16px', fontSize: 13, fontWeight: 600, textAlign: 'center', flexShrink: 0,
+      }}>
+        📅 Reminder: Weekly vacancy reports are due every Wednesday.
+      </div>
+
       <Navigation active={activeTab} onChange={handleTabChange} showAdmin={userIsAdmin} />
 
       <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
