@@ -30,6 +30,7 @@ const ROLE_SHORT_LABELS: Record<TeamRole, string> = {
   regionalManager: 'RPS', regionalMaintenanceSupervisor: 'RMS', director: 'Director', complianceSpecialist: 'Compliance',
 };
 const ALL_ROLES = Object.keys(ROLE_SHORT_LABELS) as TeamRole[];
+const UNASSIGNED_FILTER = '__unassigned__';
 
 const cellInputStyle: React.CSSProperties = {
   flex: 1, minWidth: 0, fontSize: 12.5, padding: '3px 6px', borderRadius: 5,
@@ -356,7 +357,8 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
     const q = search.trim().toLowerCase();
     if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q));
     for (const role of ALL_ROLES) {
-      if (teamFilters[role]) list = list.filter(c => currentAssignee(c, role) === teamFilters[role]);
+      if (teamFilters[role] === UNASSIGNED_FILTER) list = list.filter(c => !currentAssignee(c, role));
+      else if (teamFilters[role]) list = list.filter(c => currentAssignee(c, role) === teamFilters[role]);
     }
     return list;
   }, [communities, search, teamFilters]);
@@ -448,6 +450,7 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
             onChange={e => setTeamFilters(prev => ({ ...prev, [role]: e.target.value }))}
           >
             <option value="">{ROLE_SHORT_LABELS[role]}: All</option>
+            <option value={UNASSIGNED_FILTER}>{ROLE_SHORT_LABELS[role]}: Unassigned</option>
             {distinctAssignees(communities, role).map(name => (
               <option key={name} value={name}>{name}</option>
             ))}
