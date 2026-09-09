@@ -238,8 +238,8 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-              <Field label="Unit #" required>
-                <input style={inputStyle} value={row.unitNumber} onChange={e => updateRow(row.tempId, { unitNumber: e.target.value })} placeholder="Unit #" />
+              <Field label={row.isHopper ? 'Hopper File #' : 'Unit #'} required>
+                <input style={inputStyle} value={row.unitNumber} onChange={e => updateRow(row.tempId, { unitNumber: e.target.value })} placeholder={row.isHopper ? 'Hopper File #' : 'Unit #'} />
               </Field>
               <Field label="Vacancy Type" required>
                 <select style={inputStyle} value={row.vacancyType} onChange={e => updateRow(row.tempId, { vacancyType: Number(e.target.value) })}>
