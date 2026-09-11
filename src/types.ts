@@ -73,7 +73,9 @@ export interface UnitRowDraft {
   vacancyType: number;
   currentApplicantName: string;
   currentStatusCategory: number;
+  statusCategoryDate: string;
   currentStatusDetail?: number;
+  statusDetailDate: string;
   nextStep: string;
   nextStepDueDate: string;
   riskLevel?: number;
@@ -97,7 +99,9 @@ export function emptyUnitRow(): UnitRowDraft {
     vacancyType: VACANCY_TYPE_OPTIONS[0].value,
     currentApplicantName: '',
     currentStatusCategory: STATUS_CATEGORY_OPTIONS.find(o => o.label === 'No Applicant')?.value ?? STATUS_CATEGORY_OPTIONS[0].value,
+    statusCategoryDate: '',
     currentStatusDetail: undefined,
+    statusDetailDate: '',
     nextStep: '',
     nextStepDueDate: '',
     riskLevel: undefined,

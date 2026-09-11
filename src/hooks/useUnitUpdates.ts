@@ -9,7 +9,9 @@ export interface UnitUpdate {
   vacancyType: number;
   currentApplicantName?: string;
   currentStatusCategory: number;
+  statusCategoryDate?: string;
   currentStatusDetail?: number;
+  statusDetailDate?: string;
   nextStep?: string;
   nextStepDueDate?: string;
   riskLevel?: number;
@@ -30,6 +32,7 @@ const UNIT_SELECT = [
   'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_risklevel', 'cr1e9_approvedhopper',
   'cr1e9_actualvacancydate', 'cr1e9_expectedvacancydate', 'cr1e9_expectedmoveindate', 'cr1e9_ntvdate',
   'cr1e9_turnreadiness', 'cr1e9_subsidized', 'cr1e9_additionalnotes', 'cr1e9_staledate',
+  'cr1e9_statuscategorydate', 'cr1e9_statusdetaildate',
 ];
 
 function mapUnit(raw: {
@@ -39,7 +42,9 @@ function mapUnit(raw: {
   cr1e9_vacancytype: number;
   cr1e9_currentapplicantname?: string;
   cr1e9_currentstatuscategory: number;
+  cr1e9_statuscategorydate?: string;
   cr1e9_currentstatusdetail?: number;
+  cr1e9_statusdetaildate?: string;
   cr1e9_nextstep?: string;
   cr1e9_nextstepduedate?: string;
   cr1e9_risklevel?: number;
@@ -60,7 +65,9 @@ function mapUnit(raw: {
     vacancyType: raw.cr1e9_vacancytype,
     currentApplicantName: raw.cr1e9_currentapplicantname || undefined,
     currentStatusCategory: raw.cr1e9_currentstatuscategory,
+    statusCategoryDate: raw.cr1e9_statuscategorydate ? raw.cr1e9_statuscategorydate.split('T')[0] : undefined,
     currentStatusDetail: raw.cr1e9_currentstatusdetail,
+    statusDetailDate: raw.cr1e9_statusdetaildate ? raw.cr1e9_statusdetaildate.split('T')[0] : undefined,
     nextStep: raw.cr1e9_nextstep || undefined,
     nextStepDueDate: raw.cr1e9_nextstepduedate ? raw.cr1e9_nextstepduedate.split('T')[0] : undefined,
     riskLevel: raw.cr1e9_risklevel,
@@ -85,7 +92,9 @@ export function toUnitRowDraft(unit: UnitUpdate): UnitRowDraft {
     vacancyType: unit.vacancyType,
     currentApplicantName: unit.currentApplicantName ?? '',
     currentStatusCategory: unit.currentStatusCategory,
+    statusCategoryDate: unit.statusCategoryDate ?? '',
     currentStatusDetail: unit.currentStatusDetail,
+    statusDetailDate: unit.statusDetailDate ?? '',
     nextStep: unit.nextStep ?? '',
     nextStepDueDate: unit.nextStepDueDate ?? '',
     riskLevel: unit.riskLevel,
@@ -107,7 +116,9 @@ function unitRowPayload(row: UnitRowDraft) {
     cr1e9_vacancytype: row.vacancyType as any,
     cr1e9_currentapplicantname: row.currentApplicantName || undefined,
     cr1e9_currentstatuscategory: row.currentStatusCategory as any,
+    cr1e9_statuscategorydate: row.statusCategoryDate || undefined,
     cr1e9_currentstatusdetail: row.currentStatusDetail as any,
+    cr1e9_statusdetaildate: row.statusDetailDate || undefined,
     cr1e9_nextstep: row.nextStep || undefined,
     cr1e9_nextstepduedate: row.nextStepDueDate || undefined,
     cr1e9_risklevel: row.riskLevel as any,
