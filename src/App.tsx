@@ -12,7 +12,7 @@ import hgInfinityLogo from './assets/hg-infinity.webp';
 import './App.css';
 
 function getInitialTheme(): 'dark' | 'light' {
-  return (localStorage.getItem('theme') as 'dark' | 'light') ?? 'dark';
+  return (localStorage.getItem('theme') as 'dark' | 'light') ?? 'light';
 }
 
 export default function App() {

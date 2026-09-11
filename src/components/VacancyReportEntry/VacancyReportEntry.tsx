@@ -336,8 +336,9 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
         )}
 
         <button onClick={handleSave} disabled={!canSave || saving} style={{
-          backgroundColor: 'var(--accent)', color: 'var(--accent-fg)', border: 'none', borderRadius: 6,
-          padding: '8px 18px', fontSize: 14, fontWeight: 600, opacity: (!canSave || saving) ? 0.6 : 1,
+          backgroundColor: 'var(--accent)', color: 'var(--accent-fg)', border: 'none', borderRadius: 10,
+          padding: '18px 48px', fontSize: 20, fontWeight: 700, opacity: (!canSave || saving) ? 0.6 : 1,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)', cursor: (!canSave || saving) ? 'default' : 'pointer',
         }}>{saving ? 'Saving…' : isEditMode ? 'Save Changes' : 'Save Report'}</button>
 
         {saveError && <span style={{ color: 'var(--danger)', fontSize: 14 }}>⚠ {saveError}</span>}
