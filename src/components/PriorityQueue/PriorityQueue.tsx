@@ -4,6 +4,7 @@ import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { usePriorityQueue } from '../../hooks/usePriorityQueue';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useFastTrackUnits } from '../../hooks/useFastTrackUnits';
+import { InfoScreen } from '../InfoScreen/InfoScreen';
 
 interface Props {
   communities: Community[];
@@ -61,6 +62,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
     }
   }
   const [sortMode, setSortMode] = useState<SortMode>('rate');
+  const [showInfo, setShowInfo] = useState(false);
 
   const sortedEntries = useMemo(() => {
     const copy = [...entries];
@@ -86,7 +88,16 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
 
   return (
     <div style={{ padding: 20, overflowY: 'auto', height: '100%' }}>
-      <h2 style={{ color: 'var(--text-primary)', fontSize: 18, marginTop: 0, marginBottom: 6 }}>Priority Queue</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+        <h2 style={{ color: 'var(--text-primary)', fontSize: 18, margin: 0 }}>Priority Queue</h2>
+        <button
+          onClick={() => setShowInfo(true)}
+          style={{
+            background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer',
+            fontSize: 13, fontWeight: 600, padding: 0, display: 'flex', alignItems: 'center', gap: 4,
+          }}
+        >ℹ️ How priority is calculated</button>
+      </div>
       <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 0, marginBottom: 12 }}>
         Ranked using each community's most recent report as of the date below.
       </p>
@@ -336,6 +347,33 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
             )}
           </p>
         </>
+      )}
+
+      {showInfo && (
+        <div
+          onClick={() => setShowInfo(false)}
+          style={{
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              backgroundColor: 'var(--bg-base)', borderRadius: 12, maxWidth: 820, width: '100%',
+              maxHeight: '85vh', overflowY: 'auto', position: 'relative', boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+            }}
+          >
+            <button
+              onClick={() => setShowInfo(false)}
+              style={{
+                position: 'absolute', top: 10, right: 12, background: 'none', border: 'none',
+                color: 'var(--text-secondary)', fontSize: 20, cursor: 'pointer', lineHeight: 1, zIndex: 1,
+              }}
+            >✕</button>
+            <InfoScreen />
+          </div>
+        </div>
       )}
     </div>
   );
