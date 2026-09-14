@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Community } from '../../hooks/useCommunities';
+import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { usePriorityQueue } from '../../hooks/usePriorityQueue';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import { useFastTrackUnits } from '../../hooks/useFastTrackUnits';
@@ -8,6 +9,7 @@ interface Props {
   communities: Community[];
   communitiesLoading: boolean;
   onViewReport: (communityId: string, reportId: string) => void;
+  currentUser: CurrentUser | null;
 }
 
 type SortMode = 'rate' | 'age' | 'aging';
@@ -37,20 +39,23 @@ function todayIso(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-export function PriorityQueue({ communities, communitiesLoading, onViewReport }: Props) {
+export function PriorityQueue({ communities, communitiesLoading, onViewReport, currentUser }: Props) {
   const [asOfDate, setAsOfDate] = useState(todayIso);
   const today = todayIso();
   const isToday = asOfDate === today;
 
   const { entries, communitiesWithoutReport, loading, error } = usePriorityQueue(communities, asOfDate);
   const { portfolioVacancyGoal } = useAppSettings();
-  const { units: fastTrackUnits, loading: fastTrackLoading, error: fastTrackError, markReviewed } = useFastTrackUnits(communities, asOfDate);
+  const {
+    units: fastTrackUnits, reviewedUnits, loading: fastTrackLoading, error: fastTrackError, markReviewed,
+  } = useFastTrackUnits(communities, asOfDate);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [fastTrackTab, setFastTrackTab] = useState<'active' | 'reviewed'>('active');
 
   async function handleMarkReviewed(unitId: string) {
     setReviewingId(unitId);
     try {
-      await markReviewed(unitId);
+      await markReviewed(unitId, currentUser?.displayName || 'Unknown');
     } finally {
       setReviewingId(null);
     }
@@ -116,7 +121,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport }:
         )}
       </div>
 
-      {!fastTrackLoading && !fastTrackError && fastTrackUnits.length > 0 && (
+      {!fastTrackLoading && !fastTrackError && (fastTrackUnits.length > 0 || reviewedUnits.length > 0) && (
         <div style={{
           backgroundColor: 'var(--bg-surface)', border: '1px solid var(--warning)', borderRadius: 10,
           padding: '14px 18px', marginBottom: 20,
@@ -125,49 +130,111 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport }:
             <span aria-hidden="true">⚡</span>
             <span style={{ color: 'var(--text-primary)', fontSize: 15, fontWeight: 700 }}>Fast-Track Approvals</span>
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 0, marginBottom: 12 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 0, marginBottom: 10 }}>
             Units already submitted to compliance or awaiting corrections — these are expected to fill fastest, so they're called out first.
           </p>
-          <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
-            <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 680 }}>
-              <thead>
-                <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                  {['Unit', 'Community', 'Applicant', 'Status Detail', 'Next Step', 'Reviewed'].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {fastTrackUnits.map((u, i) => (
-                  <tr
-                    key={`${u.reportId}-${u.unitNumber}-${i}`}
-                    onClick={() => onViewReport(u.communityId, u.reportId)}
-                    style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                  >
-                    <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontSize: 14 }}>{u.unitNumber}</td>
-                    <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.communityName}</td>
-                    <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.applicantName || '—'}</td>
-                    <td style={{ padding: '8px 10px' }}>
-                      <FastTrackBadge detail={u.statusDetail} />
-                    </td>
-                    <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>
-                      {u.nextStep || '—'}{u.nextStepDueDate ? ` (due ${u.nextStepDueDate})` : ''}
-                    </td>
-                    <td style={{ padding: '8px 10px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={false}
-                        disabled={reviewingId === u.unitId}
-                        onChange={() => handleMarkReviewed(u.unitId)}
-                        style={{ width: 16, height: 16, cursor: 'pointer' }}
-                        title="Mark reviewed - removes it from this list"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            <button
+              onClick={() => setFastTrackTab('active')}
+              style={{
+                background: fastTrackTab === 'active' ? 'var(--bg-subtle)' : 'none',
+                border: fastTrackTab === 'active' ? '1px solid var(--accent)' : '1px solid var(--border)',
+                color: fastTrackTab === 'active' ? 'var(--accent)' : 'var(--text-secondary)',
+                borderRadius: 6, padding: '5px 12px', fontSize: 13, fontWeight: fastTrackTab === 'active' ? 600 : 400,
+              }}
+            >Active ({fastTrackUnits.length})</button>
+            <button
+              onClick={() => setFastTrackTab('reviewed')}
+              style={{
+                background: fastTrackTab === 'reviewed' ? 'var(--bg-subtle)' : 'none',
+                border: fastTrackTab === 'reviewed' ? '1px solid var(--accent)' : '1px solid var(--border)',
+                color: fastTrackTab === 'reviewed' ? 'var(--accent)' : 'var(--text-secondary)',
+                borderRadius: 6, padding: '5px 12px', fontSize: 13, fontWeight: fastTrackTab === 'reviewed' ? 600 : 400,
+              }}
+            >Reviewed ({reviewedUnits.length})</button>
           </div>
+
+          {fastTrackTab === 'active' && (
+            <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 680 }}>
+                <thead>
+                  <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
+                    {['Unit', 'Community', 'Applicant', 'Status Detail', 'Next Step', 'Reviewed'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {fastTrackUnits.map((u, i) => (
+                    <tr
+                      key={`${u.reportId}-${u.unitNumber}-${i}`}
+                      onClick={() => onViewReport(u.communityId, u.reportId)}
+                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                    >
+                      <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontSize: 14 }}>{u.unitNumber}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.communityName}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.applicantName || '—'}</td>
+                      <td style={{ padding: '8px 10px' }}>
+                        <FastTrackBadge detail={u.statusDetail} />
+                      </td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>
+                        {u.nextStep || '—'}{u.nextStepDueDate ? ` (due ${u.nextStepDueDate})` : ''}
+                      </td>
+                      <td style={{ padding: '8px 10px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          disabled={reviewingId === u.unitId}
+                          onChange={() => handleMarkReviewed(u.unitId)}
+                          style={{ width: 16, height: 16, cursor: 'pointer' }}
+                          title="Mark reviewed - removes it from this list"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                  {fastTrackUnits.length === 0 && (
+                    <tr><td colSpan={6} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>Nothing active — everything's been reviewed.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {fastTrackTab === 'reviewed' && (
+            <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 680 }}>
+                <thead>
+                  <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
+                    {['Unit', 'Community', 'Applicant', 'Status Detail', 'Reviewed By', 'Reviewed Date'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {reviewedUnits.map((u, i) => (
+                    <tr
+                      key={`${u.reportId}-${u.unitNumber}-${i}`}
+                      onClick={() => onViewReport(u.communityId, u.reportId)}
+                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                    >
+                      <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontSize: 14 }}>{u.unitNumber}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.communityName}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.applicantName || '—'}</td>
+                      <td style={{ padding: '8px 10px' }}>
+                        <FastTrackBadge detail={u.statusDetail} />
+                      </td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.reviewedBy || '—'}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.reviewedDate || '—'}</td>
+                    </tr>
+                  ))}
+                  {reviewedUnits.length === 0 && (
+                    <tr><td colSpan={6} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>Nothing reviewed yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

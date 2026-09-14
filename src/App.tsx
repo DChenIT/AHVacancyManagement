@@ -103,7 +103,7 @@ export default function App() {
           <HomeDashboard communities={communities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} currentUser={currentUser} />
         )}
         {activeTab === 'priority' && (
-          <PriorityQueue communities={communities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} />
+          <PriorityQueue communities={communities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} currentUser={currentUser} />
         )}
         {activeTab === 'new-report' && (
           <VacancyReportEntry
