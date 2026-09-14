@@ -272,7 +272,7 @@ AddLookupRelationship "${prefix}_community_vacancyreports" $communitiesTable $re
 $unitsTable = "${prefix}_unitupdates"
 Write-Host "`nSetting up UnitUpdates table ($unitsTable)..." -ForegroundColor Cyan
 CreateTableIfMissing $unitsTable "Unit Update" "Unit Updates" "Unit Number"
-AddChoiceColumn    $unitsTable "vacancytype"                "Vacancy Type" @("Vacant","NTV","Transfer","Unknown") $true
+AddChoiceColumn    $unitsTable "vacancytype"                "Vacancy Type" @("Vacant","NTV","Transfer") $true
 AddDateColumn      $unitsTable "ntvdate"                    "NTV Date"
 AddDateColumn      $unitsTable "expectedvacancydate"        "Expected Vacancy Date"
 AddDateColumn      $unitsTable "actualvacancydate"          "Actual Vacancy Date"
