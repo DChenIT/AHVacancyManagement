@@ -21,7 +21,7 @@ export interface UnitUpdate {
   expectedMoveInDate?: string;
   ntvDate?: string;
   turnStatus?: number;
-  subsidized?: boolean;
+  programType?: number;
   comment?: string;
   staleDate?: string;
 }
@@ -31,7 +31,7 @@ const UNIT_SELECT = [
   'cr1e9_currentapplicantname', 'cr1e9_currentstatuscategory', 'cr1e9_currentstatusdetail',
   'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_risklevel', 'cr1e9_approvedhopper',
   'cr1e9_actualvacancydate', 'cr1e9_expectedvacancydate', 'cr1e9_expectedmoveindate', 'cr1e9_ntvdate',
-  'cr1e9_turnreadiness', 'cr1e9_subsidized', 'cr1e9_additionalnotes', 'cr1e9_staledate',
+  'cr1e9_turnreadiness', 'cr1e9_programtype', 'cr1e9_additionalnotes', 'cr1e9_staledate',
   'cr1e9_statuscategorydate', 'cr1e9_statusdetaildate',
 ];
 
@@ -54,7 +54,7 @@ function mapUnit(raw: {
   cr1e9_expectedmoveindate?: string;
   cr1e9_ntvdate?: string;
   cr1e9_turnreadiness?: number;
-  cr1e9_subsidized?: boolean;
+  cr1e9_programtype?: number;
   cr1e9_additionalnotes?: string;
   cr1e9_staledate?: string;
 }): UnitUpdate {
@@ -77,7 +77,7 @@ function mapUnit(raw: {
     expectedMoveInDate: raw.cr1e9_expectedmoveindate ? raw.cr1e9_expectedmoveindate.split('T')[0] : undefined,
     ntvDate: raw.cr1e9_ntvdate ? raw.cr1e9_ntvdate.split('T')[0] : undefined,
     turnStatus: raw.cr1e9_turnreadiness,
-    subsidized: raw.cr1e9_subsidized,
+    programType: raw.cr1e9_programtype,
     comment: raw.cr1e9_additionalnotes || undefined,
     staleDate: raw.cr1e9_staledate ? raw.cr1e9_staledate.split('T')[0] : undefined,
   };
@@ -103,7 +103,7 @@ export function toUnitRowDraft(unit: UnitUpdate): UnitRowDraft {
     expectedMoveInDate: unit.expectedMoveInDate ?? '',
     ntvDate: unit.ntvDate ?? '',
     turnStatus: unit.turnStatus,
-    subsidized: unit.subsidized,
+    programType: unit.programType,
     comment: unit.comment ?? '',
     isHopper: unit.approvedHopper,
     staleDate: unit.staleDate ?? '',
@@ -127,7 +127,7 @@ function unitRowPayload(row: UnitRowDraft) {
     cr1e9_expectedmoveindate: row.expectedMoveInDate || undefined,
     cr1e9_ntvdate: row.ntvDate || undefined,
     cr1e9_turnreadiness: row.turnStatus as any,
-    cr1e9_subsidized: row.subsidized,
+    cr1e9_programtype: row.programType as any,
     cr1e9_additionalnotes: row.comment || undefined,
     cr1e9_approvedhopper: row.isHopper,
     cr1e9_staledate: row.isHopper ? (row.staleDate || undefined) : undefined,

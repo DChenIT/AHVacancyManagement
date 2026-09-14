@@ -4,7 +4,7 @@ import { useVacancyReports } from '../../hooks/useVacancyReports';
 import { useUnitUpdates, createUnitRows, updateUnitRow, deleteUnit, toUnitRowDraft } from '../../hooks/useUnitUpdates';
 import {
   VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, STATUS_DETAIL_OPTIONS, RISK_LEVEL_OPTIONS,
-  REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, emptyUnitRow, type UnitRowDraft,
+  REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, PROGRAM_TYPE_OPTIONS, emptyUnitRow, type UnitRowDraft,
 } from '../../types';
 
 interface Props {
@@ -259,15 +259,11 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
               <Field label="Applicant">
                 <input style={inputStyle} value={row.currentApplicantName} onChange={e => updateRow(row.tempId, { currentApplicantName: e.target.value })} placeholder="Applicant name" />
               </Field>
-              <Field label="Subsidized?">
-                <div style={{ ...inputStyle, display: 'flex', alignItems: 'center' }}>
-                  <input
-                    type="checkbox"
-                    checked={row.subsidized ?? false}
-                    onChange={e => updateRow(row.tempId, { subsidized: e.target.checked })}
-                    style={{ width: 16, height: 16 }}
-                  />
-                </div>
+              <Field label="Program Type">
+                <select style={inputStyle} value={row.programType ?? ''} onChange={e => updateRow(row.tempId, { programType: e.target.value ? Number(e.target.value) : undefined })}>
+                  <option value="">—</option>
+                  {PROGRAM_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
               </Field>
               <Field label="Expected Move-In">
                 <input type="date" style={inputStyle} value={row.expectedMoveInDate} onChange={e => updateRow(row.tempId, { expectedMoveInDate: e.target.value })} />

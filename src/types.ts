@@ -4,6 +4,7 @@ import {
   Cr1e9_unitupdatesescr1e9_risklevel,
   Cr1e9_unitupdatesescr1e9_vacancytype,
   Cr1e9_unitupdatesescr1e9_turnreadiness,
+  Cr1e9_unitupdatesescr1e9_programtype,
 } from './generated/models/Cr1e9_unitupdatesesModel';
 import {
   Cr1e9_vacancyreportsescr1e9_reportingperiod,
@@ -24,6 +25,7 @@ export const RISK_LEVEL_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_riskl
 export const REPORTING_PERIOD_OPTIONS = optionsFromEnum(Cr1e9_vacancyreportsescr1e9_reportingperiod);
 export const REPORT_STATUS_OPTIONS = optionsFromEnum(Cr1e9_vacancyreportsescr1e9_reportstatus);
 export const TURN_STATUS_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_turnreadiness);
+export const PROGRAM_TYPE_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_programtype);
 
 export const STATUS_CATEGORY_LABEL = Cr1e9_unitupdatesescr1e9_currentstatuscategory;
 export const STATUS_DETAIL_LABEL = Cr1e9_unitupdatesescr1e9_currentstatusdetail;
@@ -84,7 +86,7 @@ export interface UnitRowDraft {
   expectedMoveInDate: string;
   ntvDate: string;
   turnStatus?: number;
-  subsidized?: boolean;
+  programType?: number;
   comment: string;
   /** Marks this row as tracking an approved-applicant "hopper" rather than an open vacancy — mirrors cr1e9_approvedhopper. */
   isHopper: boolean;
@@ -110,7 +112,7 @@ export function emptyUnitRow(): UnitRowDraft {
     expectedMoveInDate: '',
     ntvDate: '',
     turnStatus: undefined,
-    subsidized: undefined,
+    programType: undefined,
     comment: '',
     isHopper: false,
     staleDate: '',
