@@ -310,9 +310,6 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
               <Field label="Next Step" span>
                 <input style={inputStyle} value={row.nextStep} onChange={e => updateRow(row.tempId, { nextStep: e.target.value })} placeholder="Next step" />
               </Field>
-              <Field label="Comment" span>
-                <input style={inputStyle} value={row.comment} onChange={e => updateRow(row.tempId, { comment: e.target.value })} placeholder="Comment" />
-              </Field>
             </div>
           </div>
         ))}

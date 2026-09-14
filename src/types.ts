@@ -87,7 +87,6 @@ export interface UnitRowDraft {
   ntvDate: string;
   turnStatus?: number;
   programType?: number;
-  comment: string;
   /** Marks this row as tracking an approved-applicant "hopper" rather than an open vacancy — mirrors cr1e9_approvedhopper. */
   isHopper: boolean;
   /** Only meaningful when isHopper is true — the date this hopper's file is considered stale and needs follow-up. */
@@ -113,7 +112,6 @@ export function emptyUnitRow(): UnitRowDraft {
     ntvDate: '',
     turnStatus: undefined,
     programType: undefined,
-    comment: '',
     isHopper: false,
     staleDate: '',
   };
