@@ -1,4 +1,4 @@
-export type Tab = 'dashboard' | 'priority' | 'new-report' | 'preview' | 'admin';
+export type Tab = 'dashboard' | 'priority' | 'new-report' | 'preview' | 'info' | 'admin';
 
 interface Props {
   active: Tab;
@@ -12,6 +12,7 @@ export function Navigation({ active, onChange, showAdmin }: Props) {
     { id: 'priority', label: 'Priority Queue', icon: '🎯' },
     { id: 'new-report', label: 'New Report', icon: '📝' },
     { id: 'preview', label: 'Report Preview', icon: '📋' },
+    { id: 'info', label: 'Info', icon: 'ℹ️' },
     ...(showAdmin ? [{ id: 'admin' as Tab, label: 'Admin', icon: '⚙️' }] : []),
   ];
 

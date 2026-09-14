@@ -55,6 +55,12 @@ export const AGING_DAYS_THRESHOLD = 30;
 // the signal still works without depending on staff remembering to fill in a date field.
 export const AGING_STREAK_THRESHOLD = 3;
 
+// Risk (auto) thresholds on the New Report form - days vacant (Vacant Since to Report Date) at
+// or above each cutoff bumps the unit to that tier. Below RISK_DAYS_MEDIUM is Low.
+export const RISK_DAYS_MEDIUM = 15;
+export const RISK_DAYS_HIGH = 30;
+export const RISK_DAYS_CRITICAL = 60;
+
 export type StatusColor = 'success' | 'warning' | 'info' | 'danger' | 'purple' | 'muted';
 
 export const STATUS_CATEGORY_COLOR: Record<string, StatusColor> = {

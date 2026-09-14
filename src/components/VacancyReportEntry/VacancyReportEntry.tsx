@@ -5,6 +5,7 @@ import { useUnitUpdates, createUnitRows, updateUnitRow, deleteUnit, toUnitRowDra
 import {
   VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, STATUS_DETAIL_OPTIONS, RISK_LEVEL_OPTIONS,
   REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, PROGRAM_TYPE_OPTIONS, emptyUnitRow, type UnitRowDraft,
+  RISK_DAYS_MEDIUM, RISK_DAYS_HIGH, RISK_DAYS_CRITICAL,
 } from '../../types';
 
 interface Props {
@@ -42,7 +43,7 @@ function daysBetween(from: string, to: string): number {
 function calculateRiskLevel(actualVacancyDate: string, reportDate: string): number | undefined {
   if (!actualVacancyDate || !reportDate) return undefined;
   const days = Math.max(0, daysBetween(actualVacancyDate, reportDate));
-  const label = days >= 60 ? 'Critical' : days >= 30 ? 'High' : days >= 15 ? 'Medium' : 'Low';
+  const label = days >= RISK_DAYS_CRITICAL ? 'Critical' : days >= RISK_DAYS_HIGH ? 'High' : days >= RISK_DAYS_MEDIUM ? 'Medium' : 'Low';
   return RISK_LEVEL_OPTIONS.find(o => o.label === label)?.value;
 }
 
