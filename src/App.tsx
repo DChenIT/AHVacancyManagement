@@ -21,6 +21,7 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(getInitialTheme);
   const [previewTarget, setPreviewTarget] = useState<{ communityId: string; reportId: string } | undefined>();
   const [editTarget, setEditTarget] = useState<{ communityId: string; reportId: string } | undefined>();
+  const [newReportDirty, setNewReportDirty] = useState(false);
 
   const { communities, loading: communitiesLoading, updateCommunity, assignTeamMember } = useCommunities();
   const { currentUser } = useCurrentUser();
@@ -51,6 +52,10 @@ export default function App() {
 
   // Clicking the New Report nav tab directly (not via "Edit This Report") always starts blank.
   function handleTabChange(tab: Tab) {
+    if (activeTab === 'new-report' && newReportDirty) {
+      const confirmed = window.confirm('You have unsaved changes on this report. Leave without saving?');
+      if (!confirmed) return;
+    }
     if (tab === 'new-report') setEditTarget(undefined);
     setActiveTab(tab);
   }
@@ -113,6 +118,7 @@ export default function App() {
             onSaved={goToPreview}
             editReportId={editTarget?.reportId}
             editCommunityId={editTarget?.communityId}
+            onDirtyChange={setNewReportDirty}
           />
         )}
         {activeTab === 'preview' && (

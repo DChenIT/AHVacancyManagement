@@ -15,6 +15,8 @@ interface Props {
   /** When set, edits that existing report instead of starting a blank new one - see ReportPreview's "Edit This Report" button, only offered for a community's latest report. */
   editReportId?: string;
   editCommunityId?: string;
+  /** Fires whenever unsaved-changes state changes, so the parent can warn before switching tabs. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -64,7 +66,7 @@ function Field({ label, children, span, required }: { label: string; children: R
   );
 }
 
-export function VacancyReportEntry({ communities, communitiesLoading, onSaved, editReportId, editCommunityId }: Props) {
+export function VacancyReportEntry({ communities, communitiesLoading, onSaved, editReportId, editCommunityId, onDirtyChange }: Props) {
   const isEditMode = !!editReportId;
   const [communityId, setCommunityId] = useState(editCommunityId ?? '');
   const [reportDate, setReportDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -76,6 +78,10 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [originalUnitIds, setOriginalUnitIds] = useState<string[]>([]);
   const [loadedEditReportId, setLoadedEditReportId] = useState<string | undefined>(undefined);
+  // Explicit dirty flag rather than diffing state - edit mode always has non-empty content, so
+  // "has content" isn't the same as "has unsaved changes." Set on actual edits, cleared whenever
+  // the form is (re)seeded from a known-clean source (fresh load, reset, or a successful save).
+  const [hasUnsavedEdits, setHasUnsavedEdits] = useState(false);
 
   const { createReport, updateReportFields, reports } = useVacancyReports(communityId || undefined);
   const { units: existingUnits, loading: existingUnitsLoading } = useUnitUpdates(editReportId);
@@ -98,6 +104,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     setRows(drafts.length ? drafts : [emptyUnitRow()]);
     setOriginalUnitIds(existingUnits.map(u => u.id));
     setLoadedEditReportId(editReportId);
+    setHasUnsavedEdits(false);
   }, [isEditMode, editReportId, editCommunityId, editingReport, existingUnits, existingUnitsLoading, loadedEditReportId]);
 
   // Leaving edit mode (editReportId cleared, e.g. via the New Report nav tab) resets to a blank form.
@@ -110,10 +117,12 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     setNothingToReport(false);
     setOriginalUnitIds([]);
     setLoadedEditReportId(undefined);
+    setHasUnsavedEdits(false);
   }, [editReportId, editCommunityId]);
 
   function updateRow(tempId: string, patch: Partial<UnitRowDraft>) {
     setRows(prev => prev.map(r => r.tempId === tempId ? { ...r, ...patch } : r));
+    setHasUnsavedEdits(true);
   }
 
   function addRow() {
@@ -122,11 +131,16 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
 
   function removeRow(tempId: string) {
     setRows(prev => prev.length > 1 ? prev.filter(r => r.tempId !== tempId) : prev);
+    setHasUnsavedEdits(true);
   }
 
   const validRows = rows.filter(r => r.unitNumber.trim());
   const statusDetailComplete = validRows.every(r => r.currentStatusDetail !== undefined);
   const canSave = !!communityId && !!reportDate && (nothingToReport || (validRows.length > 0 && statusDetailComplete));
+
+  // Surfaces unsaved-changes state to the parent so it can warn before switching tabs.
+  useEffect(() => { onDirtyChange?.(hasUnsavedEdits); }, [hasUnsavedEdits, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   async function handleSave() {
     if (!canSave || !selectedCommunity) return;
@@ -154,6 +168,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
         }
         await updateReportFields(editReportId, { notes: notes.trim(), nothingToReport });
         setSaveSuccess(true);
+        setHasUnsavedEdits(false);
         onSaved(communityId, editReportId);
       } else {
         const reportId = await createReport({
@@ -165,6 +180,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
         setRows([emptyUnitRow()]);
         setNotes('');
         setNothingToReport(false);
+        setHasUnsavedEdits(false);
         onSaved(communityId, reportId);
       }
     } catch (e) {
@@ -226,7 +242,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
           type="checkbox"
           id="nothing-to-report"
           checked={nothingToReport}
-          onChange={e => setNothingToReport(e.target.checked)}
+          onChange={e => { setNothingToReport(e.target.checked); setHasUnsavedEdits(true); }}
           style={{ width: 16, height: 16 }}
         />
         <label htmlFor="nothing-to-report" style={{ color: 'var(--text-primary)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
@@ -348,7 +364,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
           style={{ ...inputStyle, minHeight: 90, resize: 'vertical', fontFamily: 'inherit' }}
           placeholder="Anything else leadership should know about this community this period…"
           value={notes}
-          onChange={e => setNotes(e.target.value)}
+          onChange={e => { setNotes(e.target.value); setHasUnsavedEdits(true); }}
         />
       </div>
 
