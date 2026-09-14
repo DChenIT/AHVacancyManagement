@@ -32,6 +32,24 @@ function formatReportTitle(communityName: string, reportDate: string): string {
 // Reports are always weekly now, so the field is fixed rather than user-chosen.
 const WEEKLY_REPORTING_PERIOD = REPORTING_PERIOD_OPTIONS.find(o => o.label === 'Weekly')?.value ?? 100000000;
 
+function daysBetween(from: string, to: string): number {
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.round((new Date(to).getTime() - new Date(from).getTime()) / msPerDay);
+}
+
+// Risk is derived from how long a unit has been vacant rather than picked by staff - thresholds
+// per the Affordable Housing Team: 0-14 Low, 15-29 Medium, 30-59 High, 60+ Critical.
+function calculateRiskLevel(actualVacancyDate: string, reportDate: string): number | undefined {
+  if (!actualVacancyDate || !reportDate) return undefined;
+  const days = Math.max(0, daysBetween(actualVacancyDate, reportDate));
+  const label = days >= 60 ? 'Critical' : days >= 30 ? 'High' : days >= 15 ? 'Medium' : 'Low';
+  return RISK_LEVEL_OPTIONS.find(o => o.label === label)?.value;
+}
+
+const RISK_LEVEL_COLOR: Record<string, string> = {
+  Low: 'var(--success)', Medium: 'var(--warning)', High: 'var(--danger)', Critical: 'var(--purple)',
+};
+
 function RequiredMark() {
   return <span style={{ color: 'var(--danger)' }} aria-hidden="true"> *</span>;
 }
@@ -121,7 +139,9 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     setSaveError(null);
     setSaveSuccess(false);
     try {
-      const currentValidRows = nothingToReport ? [] : validRows;
+      const currentValidRows = nothingToReport ? [] : validRows.map(r => ({
+        ...r, riskLevel: calculateRiskLevel(r.actualVacancyDate, reportDate),
+      }));
       if (isEditMode && editReportId) {
         for (const row of currentValidRows) {
           if (row.unitId) await updateUnitRow(row.unitId, row);
@@ -273,11 +293,16 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                   <input type="date" style={inputStyle} value={row.staleDate} onChange={e => updateRow(row.tempId, { staleDate: e.target.value })} />
                 </Field>
               )}
-              <Field label="Risk">
-                <select style={inputStyle} value={row.riskLevel ?? ''} onChange={e => updateRow(row.tempId, { riskLevel: e.target.value ? Number(e.target.value) : undefined })}>
-                  <option value="">—</option>
-                  {RISK_LEVEL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+              <Field label="Risk (auto)">
+                {(() => {
+                  const computedRisk = calculateRiskLevel(row.actualVacancyDate, reportDate);
+                  const label = computedRisk !== undefined ? RISK_LEVEL_OPTIONS.find(o => o.value === computedRisk)?.label : undefined;
+                  return (
+                    <div style={{ ...inputStyle, backgroundColor: 'var(--bg-subtle)', color: label ? RISK_LEVEL_COLOR[label] : 'var(--text-muted)', fontWeight: 600 }}>
+                      {label ?? '—'}
+                    </div>
+                  );
+                })()}
               </Field>
               <Field label="Turn Status">
                 <select style={inputStyle} value={row.turnStatus ?? ''} onChange={e => updateRow(row.tempId, { turnStatus: e.target.value ? Number(e.target.value) : undefined })}>
