@@ -91,7 +91,7 @@ export default function App() {
 
       <div style={{
         backgroundColor: 'var(--info-bg)', color: 'var(--info)', borderBottom: '1px solid var(--border)',
-        padding: '7px 16px', fontSize: 13, fontWeight: 600, textAlign: 'center', flexShrink: 0,
+        padding: '12px 16px', fontSize: 18, fontWeight: 800, textAlign: 'center', flexShrink: 0,
       }}>
         📅 Reminder: Weekly vacancy reports are due every Wednesday.
       </div>
