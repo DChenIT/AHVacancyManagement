@@ -284,6 +284,7 @@ AddDateColumn      $unitsTable "statusdetaildate"           "Status Detail Date"
 AddDateColumn      $unitsTable "approvaldate"               "Approval Date"
 AddBooleanColumn   $unitsTable "approvedhopper"             "Approved Hopper"
 AddDateColumn      $unitsTable "staledate"                  "Stale Date"
+AddBooleanColumn   $unitsTable "fasttrackreviewed"          "Fast-Track Reviewed"
 AddMemoColumn      $unitsTable "nextstep"                   "Next Step"
 AddStringColumn    $unitsTable "nextstepowner"              "Next Step Owner" 200 $false
 AddDateColumn      $unitsTable "nextstepduedate"            "Next Step Due Date"

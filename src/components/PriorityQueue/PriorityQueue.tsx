@@ -44,7 +44,17 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport }:
 
   const { entries, communitiesWithoutReport, loading, error } = usePriorityQueue(communities, asOfDate);
   const { portfolioVacancyGoal } = useAppSettings();
-  const { units: fastTrackUnits, loading: fastTrackLoading, error: fastTrackError } = useFastTrackUnits(communities, asOfDate);
+  const { units: fastTrackUnits, loading: fastTrackLoading, error: fastTrackError, markReviewed } = useFastTrackUnits(communities, asOfDate);
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+
+  async function handleMarkReviewed(unitId: string) {
+    setReviewingId(unitId);
+    try {
+      await markReviewed(unitId);
+    } finally {
+      setReviewingId(null);
+    }
+  }
   const [sortMode, setSortMode] = useState<SortMode>('rate');
 
   const sortedEntries = useMemo(() => {
@@ -122,7 +132,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport }:
             <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 680 }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                  {['Unit', 'Community', 'Applicant', 'Status Detail', 'Next Step'].map(h => (
+                  {['Unit', 'Community', 'Applicant', 'Status Detail', 'Next Step', 'Reviewed'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                   ))}
                 </tr>
@@ -142,6 +152,16 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport }:
                     </td>
                     <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>
                       {u.nextStep || '—'}{u.nextStepDueDate ? ` (due ${u.nextStepDueDate})` : ''}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        disabled={reviewingId === u.unitId}
+                        onChange={() => handleMarkReviewed(u.unitId)}
+                        style={{ width: 16, height: 16, cursor: 'pointer' }}
+                        title="Mark reviewed - removes it from this list"
+                      />
                     </td>
                   </tr>
                 ))}

@@ -11,6 +11,7 @@ import type { Community } from './useCommunities';
 const FAST_TRACK_DETAILS = new Set(['Submitted to Compliance', 'Corrections Requested']);
 
 export interface FastTrackUnit {
+  unitId: string;
   communityId: string;
   communityName: string;
   unitNumber: string;
@@ -58,8 +59,8 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
 
       const unitsResult = await Cr1e9_unitupdatesesService.getAll({
         select: [
-          '_cr1e9_vacancyreport_value', 'cr1e9_name', 'cr1e9_currentapplicantname',
-          'cr1e9_currentstatusdetail', 'cr1e9_nextstep', 'cr1e9_nextstepduedate',
+          'cr1e9_unitupdatesid', '_cr1e9_vacancyreport_value', 'cr1e9_name', 'cr1e9_currentapplicantname',
+          'cr1e9_currentstatusdetail', 'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_fasttrackreviewed',
         ],
       });
       if (unitsResult.error) throw new Error(unitsResult.error.message ?? 'Failed to load units');
@@ -72,10 +73,12 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
         if (!info) continue; // not the community's latest report - out of scope for this callout
         const detailLabel = STATUS_DETAIL_LABEL[u.cr1e9_currentstatusdetail as keyof typeof STATUS_DETAIL_LABEL];
         if (!detailLabel || !FAST_TRACK_DETAILS.has(detailLabel)) continue;
+        if (u.cr1e9_fasttrackreviewed) continue; // cleared - no longer needs a follow-up
         const community = communityById.get(info.communityId);
         if (!community) continue;
 
         result.push({
+          unitId: u.cr1e9_unitupdatesid,
           communityId: info.communityId,
           communityName: community.name,
           unitNumber: u.cr1e9_name,
@@ -103,5 +106,11 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  return { units, loading, error, refresh };
+  const markReviewed = useCallback(async (unitId: string) => {
+    const result = await Cr1e9_unitupdatesesService.update(unitId, { cr1e9_fasttrackreviewed: true } as any);
+    if (result.error) throw new Error(result.error.message ?? 'Failed to mark reviewed');
+    setUnits(prev => prev.filter(u => u.unitId !== unitId));
+  }, []);
+
+  return { units, loading, error, refresh, markReviewed };
 }
