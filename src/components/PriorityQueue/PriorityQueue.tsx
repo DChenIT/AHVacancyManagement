@@ -48,7 +48,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
   const { entries, communitiesWithoutReport, loading, error } = usePriorityQueue(communities, asOfDate);
   const { portfolioVacancyGoal } = useAppSettings();
   const {
-    units: fastTrackUnits, reviewedUnits, loading: fastTrackLoading, error: fastTrackError, markReviewed,
+    units: fastTrackUnits, reviewedUnits, loading: fastTrackLoading, error: fastTrackError, markReviewed, unmarkReviewed,
   } = useFastTrackUnits(communities, asOfDate);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [fastTrackTab, setFastTrackTab] = useState<'active' | 'reviewed'>('active');
@@ -57,6 +57,20 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
     setReviewingId(unitId);
     try {
       await markReviewed(unitId, currentUser?.displayName || 'Unknown');
+    } finally {
+      setReviewingId(null);
+    }
+  }
+
+  function canUnmark(reviewedBy: string | undefined): boolean {
+    if (!reviewedBy || !currentUser?.displayName) return false;
+    return reviewedBy.trim().toLowerCase() === currentUser.displayName.trim().toLowerCase();
+  }
+
+  async function handleUnmarkReviewed(unitId: string) {
+    setReviewingId(unitId);
+    try {
+      await unmarkReviewed(unitId);
     } finally {
       setReviewingId(null);
     }
@@ -217,7 +231,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
               <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 680 }}>
                 <thead>
                   <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                    {['Unit', 'Community', 'Applicant', 'Status Detail', 'Reviewed By', 'Reviewed Date'].map(h => (
+                    {['Unit', 'Community', 'Applicant', 'Status Detail', 'Reviewed By', 'Reviewed Date', ''].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                     ))}
                   </tr>
@@ -237,10 +251,23 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
                       </td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.reviewedBy || '—'}</td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.reviewedDate || '—'}</td>
+                      <td style={{ padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
+                        {canUnmark(u.reviewedBy) && (
+                          <button
+                            onClick={() => handleUnmarkReviewed(u.unitId)}
+                            disabled={reviewingId === u.unitId}
+                            title="Only the person who reviewed this can unmark it"
+                            style={{
+                              background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-secondary)',
+                              padding: '4px 10px', fontSize: 12.5, cursor: 'pointer', opacity: reviewingId === u.unitId ? 0.6 : 1,
+                            }}
+                          >{reviewingId === u.unitId ? '…' : 'Unmark'}</button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {reviewedUnits.length === 0 && (
-                    <tr><td colSpan={6} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>Nothing reviewed yet.</td></tr>
+                    <tr><td colSpan={7} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>Nothing reviewed yet.</td></tr>
                   )}
                 </tbody>
               </table>

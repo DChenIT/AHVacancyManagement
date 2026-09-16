@@ -126,5 +126,20 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
     await refresh();
   }, [refresh]);
 
-  return { units, reviewedUnits, loading, error, refresh, markReviewed };
+  // Only meant to be called after the caller has confirmed reviewedBy matches the signed-in
+  // user - this is a UI-level courtesy (same trust model as the rest of the app's name-based
+  // checks like "Show only my communities"), not a Dataverse-enforced security boundary.
+  const unmarkReviewed = useCallback(async (unitId: string) => {
+    // Explicit null (not undefined) - Dataverse only clears a field when the property is
+    // actually present in the PATCH body with a null value; an omitted key leaves it unchanged.
+    const result = await Cr1e9_unitupdatesesService.update(unitId, {
+      cr1e9_fasttrackreviewed: false,
+      cr1e9_fasttrackreviewedby: null,
+      cr1e9_fasttrackrevieweddate: null,
+    } as any);
+    if (result.error) throw new Error(result.error.message ?? 'Failed to unmark reviewed');
+    await refresh();
+  }, [refresh]);
+
+  return { units, reviewedUnits, loading, error, refresh, markReviewed, unmarkReviewed };
 }
