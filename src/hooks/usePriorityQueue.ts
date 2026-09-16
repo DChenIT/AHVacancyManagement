@@ -85,7 +85,7 @@ export function usePriorityQueue(communities: Community[], asOfDate?: string) {
       }
 
       const unitsResult = await Cr1e9_unitupdatesesService.getAll({
-        select: ['_cr1e9_vacancyreport_value', 'cr1e9_name', 'cr1e9_currentstatuscategory', 'cr1e9_actualvacancydate'],
+        select: ['_cr1e9_vacancyreport_value', 'cr1e9_name', 'cr1e9_currentstatuscategory', 'cr1e9_actualvacancydate', 'cr1e9_approvedhopper'],
       });
       if (unitsResult.error) throw new Error(unitsResult.error.message ?? 'Failed to load units');
 
@@ -98,6 +98,7 @@ export function usePriorityQueue(communities: Community[], asOfDate?: string) {
         if (!rid) continue;
         const cat = STATUS_CATEGORY_LABEL[u.cr1e9_currentstatuscategory as keyof typeof STATUS_CATEGORY_LABEL];
         if (cat === 'Approved') continue;
+        if (u.cr1e9_approvedhopper) continue; // hopper rows track an applicant file, not a vacant unit - don't count toward vacancy rate
         const nameKey = u.cr1e9_name?.trim().toLowerCase() ?? '';
         if (relevantReportIds.has(rid)) {
           const list = openUnitsByReport.get(rid) ?? [];

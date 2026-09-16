@@ -105,7 +105,7 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
   const { units, loading: unitsLoading } = useUnitUpdates(latestReport?.id);
 
   const kpis = useMemo(() => {
-    const openVacancyCount = units.filter(u => STATUS_CATEGORY_LABEL[u.currentStatusCategory as keyof typeof STATUS_CATEGORY_LABEL] !== 'Approved').length;
+    const openVacancyCount = units.filter(u => STATUS_CATEGORY_LABEL[u.currentStatusCategory as keyof typeof STATUS_CATEGORY_LABEL] !== 'Approved' && !u.approvedHopper).length;
     const ntvCount = units.filter(u => VACANCY_TYPE_LABEL[u.vacancyType as keyof typeof VACANCY_TYPE_LABEL] === 'NTV').length;
     const activeApplicantCount = units.filter(u => !!u.currentApplicantName).length;
     const approvedHopperCount = units.filter(u => u.approvedHopper).length;
