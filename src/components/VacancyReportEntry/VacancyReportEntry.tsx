@@ -252,6 +252,10 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
 
       {!nothingToReport && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <button onClick={addRow} style={{
+          alignSelf: 'flex-start', backgroundColor: 'var(--bg-surface)', border: '2px solid var(--accent)', borderRadius: 8,
+          color: 'var(--accent)', padding: '10px 20px', fontSize: 16, fontWeight: 700, cursor: 'pointer',
+        }}>+ Add Another Unit</button>
         {rows.map((row, i) => (
           <div key={row.tempId} style={{
             border: '1px solid var(--border)', borderRadius: 10, backgroundColor: 'var(--bg-surface)', padding: '14px 16px',
@@ -371,9 +375,9 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
         {!nothingToReport && (
           <button onClick={addRow} style={{
-            background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)',
-            padding: '8px 14px', fontSize: 14,
-          }}>+ Add Unit</button>
+            backgroundColor: 'var(--bg-surface)', border: '2px solid var(--accent)', borderRadius: 8,
+            color: 'var(--accent)', padding: '10px 20px', fontSize: 16, fontWeight: 700, cursor: 'pointer',
+          }}>+ Add Another Unit</button>
         )}
 
         <button onClick={handleSave} disabled={!canSave || saving} style={{
