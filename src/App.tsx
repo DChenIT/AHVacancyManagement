@@ -61,8 +61,8 @@ export default function App() {
 
   return (
     <div style={{
-      position: 'relative', zIndex: 0, overflow: 'hidden',
-      display: 'flex', flexDirection: 'column', height: '100vh',
+      position: 'relative', zIndex: 0, overflowX: 'hidden',
+      display: 'flex', flexDirection: 'column', minHeight: '100vh',
       background: 'var(--hg-gradient-page), var(--bg-base)', fontFamily: 'system-ui, -apple-system, sans-serif',
     }}>
       <img
@@ -70,7 +70,7 @@ export default function App() {
         alt=""
         aria-hidden="true"
         style={{
-          position: 'absolute', zIndex: -1, pointerEvents: 'none', userSelect: 'none',
+          position: 'fixed', zIndex: -1, pointerEvents: 'none', userSelect: 'none',
           width: '100%', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
           opacity: 0.10,
           filter: 'drop-shadow(0 12px 28px rgba(0,0,0,0.45))',
@@ -103,7 +103,7 @@ export default function App() {
 
       <Navigation active={activeTab} onChange={handleTabChange} showAdmin={userIsAdmin} />
 
-      <main style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <main style={{ flex: 1, minHeight: 0 }}>
         {activeTab === 'dashboard' && (
           <HomeDashboard communities={communities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} currentUser={currentUser} />
         )}
