@@ -6,7 +6,7 @@ import { useOrgUserSearch, type OrgUser } from '../../hooks/useOrgUserSearch';
 interface Props {
   communities: Community[];
   communitiesLoading: boolean;
-  updateCommunity: (id: string, changes: { hopperGoal?: number; active?: boolean; defaultReportRecipients?: string }) => Promise<void>;
+  updateCommunity: (id: string, changes: { hopperGoal?: number; active?: boolean; defaultReportRecipients?: string; numberOfUnits?: number }) => Promise<void>;
   assignTeamMember: (communityIds: string[], role: TeamRole, person: { displayName: string; email: string }) => Promise<void>;
 }
 
@@ -317,14 +317,19 @@ interface CommunityDraft {
   hopperGoal: number;
   active: boolean;
   defaultReportRecipients: string;
+  numberOfUnits: number;
 }
 
 function draftFrom(c: Community): CommunityDraft {
-  return { hopperGoal: c.hopperGoal, active: c.active, defaultReportRecipients: c.defaultReportRecipients ?? '' };
+  return {
+    hopperGoal: c.hopperGoal, active: c.active, defaultReportRecipients: c.defaultReportRecipients ?? '',
+    numberOfUnits: c.numberOfUnits ?? 0,
+  };
 }
 
 function isDirty(c: Community, d: CommunityDraft): boolean {
-  return c.hopperGoal !== d.hopperGoal || c.active !== d.active || (c.defaultReportRecipients ?? '') !== d.defaultReportRecipients;
+  return c.hopperGoal !== d.hopperGoal || c.active !== d.active || (c.defaultReportRecipients ?? '') !== d.defaultReportRecipients
+    || (c.numberOfUnits ?? 0) !== d.numberOfUnits;
 }
 
 function distinctAssignees(communities: Community[], role: TeamRole): string[] {
@@ -465,7 +470,7 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
           <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 760 }}>
             <thead>
               <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                {['Community', 'Team', 'Hopper Goal', 'Active', 'Default Report Recipients', ''].map(h => (
+                {['Community', 'Team', 'Units', 'Hopper Goal', 'Active', 'Default Report Recipients', ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                 ))}
               </tr>
@@ -482,6 +487,15 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
                     </td>
                     <td style={{ padding: '8px 10px', minWidth: 240 }}>
                       <TeamCell community={c} assignTeamMember={assignTeamMember} />
+                    </td>
+                    <td style={{ padding: 6, width: 90 }}>
+                      <input
+                        type="number"
+                        min={0}
+                        style={inputStyle}
+                        value={draft.numberOfUnits}
+                        onChange={e => updateDraft(c, { numberOfUnits: Number(e.target.value) })}
+                      />
                     </td>
                     <td style={{ padding: 6, width: 110 }}>
                       <input
@@ -525,7 +539,7 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>No properties match.</td></tr>
+                <tr><td colSpan={7} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>No properties match.</td></tr>
               )}
             </tbody>
           </table>

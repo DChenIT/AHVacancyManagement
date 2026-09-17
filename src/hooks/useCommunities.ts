@@ -110,11 +110,12 @@ export function useCommunities() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const updateCommunity = useCallback(async (id: string, changes: { hopperGoal?: number; active?: boolean; defaultReportRecipients?: string }) => {
+  const updateCommunity = useCallback(async (id: string, changes: { hopperGoal?: number; active?: boolean; defaultReportRecipients?: string; numberOfUnits?: number }) => {
     const result = await Cr1e9_communitiesesService.update(id, {
       cr1e9_hoppergoal: changes.hopperGoal,
       cr1e9_active: changes.active,
       cr1e9_defaultreportrecipients: changes.defaultReportRecipients,
+      cr1e9_numberofunits: changes.numberOfUnits,
     } as any);
     if (result.error) throw new Error(result.error.message ?? 'Failed to update community');
     await refresh();
