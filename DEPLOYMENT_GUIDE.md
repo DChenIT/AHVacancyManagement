@@ -253,6 +253,19 @@ The Admin screen's "Team Member Assignments" section lets an admin search the co
 
 ---
 
+## Environment setting: allow the Training tab's video (Content Security Policy)
+
+The Training tab embeds a SharePoint video in an iframe (`src/components/TrainingScreen/TrainingScreen.tsx`). Code Apps enforce a Content Security Policy per environment, and its default `frame-src` is `'self'`, so the video is blocked until an environment admin allows SharePoint:
+
+1. **https://admin.powerplatform.microsoft.com** → **Environments** → your environment → **Settings** → **Product** → **Privacy + Security**.
+2. Under **Content security policy**, open the **App** tab.
+3. Under **Configure directives**, turn off the **frame-src** default toggle and add `https://humangood.sharepoint.com` (custom values are appended to `'self'`).
+4. Save.
+
+This is an environment setting, **not** part of the solution, so it does not travel with a solution export/import — repeat it in every environment that should show the video. Viewers also need read access to the SharePoint site the video lives on. To swap the video, change the two URL constants at the top of `TrainingScreen.tsx` (the embed address uses the file's UniqueId — the GUID inside the share link's `d=w…` parameter).
+
+---
+
 ## Step 10 — Build and deploy
 
 ```bash

@@ -8,6 +8,7 @@ import { PriorityQueue } from './components/PriorityQueue/PriorityQueue';
 import { VacancyReportEntry } from './components/VacancyReportEntry/VacancyReportEntry';
 import { ReportPreview } from './components/ReportPreview/ReportPreview';
 import { AdminScreen } from './components/AdminScreen/AdminScreen';
+import { TrainingScreen } from './components/TrainingScreen/TrainingScreen';
 import hgInfinityLogo from './assets/hg-infinity.webp';
 import './App.css';
 
@@ -130,6 +131,7 @@ export default function App() {
             onEditReport={goToEdit}
           />
         )}
+        {activeTab === 'training' && <TrainingScreen />}
         {activeTab === 'admin' && userIsAdmin && (
           <AdminScreen communities={communities} communitiesLoading={communitiesLoading} updateCommunity={updateCommunity} assignTeamMember={assignTeamMember} />
         )}
