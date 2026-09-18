@@ -259,8 +259,10 @@ The Training tab embeds a SharePoint video in an iframe (`src/components/Trainin
 
 1. **https://admin.powerplatform.microsoft.com** → **Environments** → your environment → **Settings** → **Product** → **Privacy + Security**.
 2. Under **Content security policy**, open the **App** tab.
-3. Under **Configure directives**, turn off the **frame-src** default toggle and add `https://humangood.sharepoint.com` (custom values are appended to `'self'`).
-4. Save.
+3. Under **Configure directives**, turn off the **frame-src** default toggle and add both of these (custom values are appended to `'self'`; don't leave the list blank with the toggle off, which removes the restriction entirely):
+   - `https://humangood.sharepoint.com` — where the video lives
+   - `https://login.microsoftonline.com` — SharePoint redirects the embed here to sign the viewer in silently; without it the console shows `Framing 'https://login.microsoftonline.com/' violates the following Content Security Policy directive` and the video shows "This content is blocked"
+4. Save, wait a couple of minutes, and reload the app with Ctrl+Shift+R (the policy is sent when the page loads).
 
 This is an environment setting, **not** part of the solution, so it does not travel with a solution export/import — repeat it in every environment that should show the video. Viewers also need read access to the SharePoint site the video lives on. To swap the video, change the two URL constants at the top of `TrainingScreen.tsx` (the embed address uses the file's UniqueId — the GUID inside the share link's `d=w…` parameter).
 
