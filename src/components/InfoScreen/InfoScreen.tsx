@@ -43,7 +43,7 @@ export function InfoScreen() {
 
       <Section title="What counts as an open vacancy" icon="🏠">
         <p style={{ margin: 0 }}>
-          Any unit whose Status Category is anything <em>other than</em> "Approved" counts as open. Once a unit's status reaches Approved, it drops out of the open-vacancy count and the vacancy rate.
+          Any unit whose Status Category is anything <em>other than</em> "Approved" counts as open. Once a unit's status reaches Approved, it drops out of the open-vacancy count and the vacancy rate. Rows marked <strong>Hopper</strong> track an applicant's file rather than a vacant unit, so they're left out of the open-vacancy count, vacancy rate, aging flag, and Fast-Track list entirely.
         </p>
       </Section>
 

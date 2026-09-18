@@ -66,7 +66,7 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
         select: [
           'cr1e9_unitupdatesid', '_cr1e9_vacancyreport_value', 'cr1e9_name', 'cr1e9_currentapplicantname',
           'cr1e9_currentstatusdetail', 'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_fasttrackreviewed',
-          'cr1e9_fasttrackreviewedby', 'cr1e9_fasttrackrevieweddate',
+          'cr1e9_fasttrackreviewedby', 'cr1e9_fasttrackrevieweddate', 'cr1e9_approvedhopper',
         ],
       });
       if (unitsResult.error) throw new Error(unitsResult.error.message ?? 'Failed to load units');
@@ -78,6 +78,7 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
         const rid = u._cr1e9_vacancyreport_value;
         const info = rid ? communityByReportId.get(rid) : undefined;
         if (!info) continue; // not the community's latest report - out of scope for this callout
+        if (u.cr1e9_approvedhopper) continue; // hopper files aren't vacancies to chase, so they don't belong in this list
         const detailLabel = STATUS_DETAIL_LABEL[u.cr1e9_currentstatusdetail as keyof typeof STATUS_DETAIL_LABEL];
         if (!detailLabel || !FAST_TRACK_DETAILS.has(detailLabel)) continue;
         const community = communityById.get(info.communityId);
