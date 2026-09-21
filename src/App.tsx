@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useCommunities } from './hooks/useCommunities';
 import { useCurrentUser } from './hooks/useCurrentUser';
 import { useIsAdmin } from './hooks/useIsAdmin';
@@ -29,17 +29,15 @@ export default function App() {
   const { currentUser } = useCurrentUser();
   const { isAdmin: userIsAdmin } = useIsAdmin(currentUser?.email);
 
-  // Shared slicers shown above every community-based tab (RPS/RMS/Director/Compliance/Asset
-  // Manager + Submitted/Not submitted). The list is filtered once here and handed to each tab.
+  // Slicers for the Dashboard only (RPS/RMS/Director/Compliance/Asset Manager + Submitted/Not
+  // submitted). They don't touch any other tab, so a filter set here can't silently trim a list elsewhere.
   const [filters, setFilters] = useState<GlobalFilters>(EMPTY_FILTERS);
   const { isUpToDate, loading: completenessLoading, refresh: refreshCompleteness } = useReportCompleteness();
 
-  // The hook loads once on its own; after that, re-check whenever the tab changes so a report
-  // saved or deleted elsewhere is reflected in the Submitted/Not submitted slicer.
-  const firstTabRender = useRef(true);
+  // The hook loads once on its own; re-check each time the Dashboard is opened so a report saved
+  // or deleted elsewhere is reflected in the Submitted/Not submitted slicer.
   useEffect(() => {
-    if (firstTabRender.current) { firstTabRender.current = false; return; }
-    refreshCompleteness();
+    if (activeTab === 'dashboard') refreshCompleteness();
   }, [activeTab, refreshCompleteness]);
 
   const roleScoped = useMemo(() => applyRoleFilters(communities, filters), [communities, filters]);
@@ -47,7 +45,7 @@ export default function App() {
     if (filters.submission === 'all' || completenessLoading) return roleScoped;
     return roleScoped.filter(c => (filters.submission === 'submitted') === isUpToDate(c.id));
   }, [roleScoped, filters.submission, completenessLoading, isUpToDate]);
-  const showFilterBar = activeTab === 'dashboard' || activeTab === 'priority' || activeTab === 'new-report' || activeTab === 'preview';
+  const showFilterBar = activeTab === 'dashboard';
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -65,12 +63,6 @@ export default function App() {
     setPreviewTarget({ communityId, reportId });
     setEditTarget(undefined);
     setActiveTab('preview');
-  }
-
-  // Refresh the submission status right away so the just-saved community drops out of "Not submitted".
-  function handleSaved(communityId: string, reportId: string) {
-    refreshCompleteness();
-    goToPreview(communityId, reportId);
   }
 
   function goToEdit(communityId: string, reportId: string) {
@@ -145,9 +137,8 @@ export default function App() {
       )}
 
       <main style={{ flex: 1, minHeight: 0 }}>
-        {/* Dashboard, New Report and Report Preview keep the full list for lookups (so a selected or
-            just-saved community never disappears when a slicer changes) and use the filtered list
-            only for what they offer to pick from. */}
+        {/* The Dashboard keeps the full list for lookups (so a selected community never disappears
+            when a slicer changes) and uses the filtered list only for what it offers to pick from. */}
         {activeTab === 'dashboard' && (
           <HomeDashboard
             communities={communities}
@@ -159,14 +150,13 @@ export default function App() {
           />
         )}
         {activeTab === 'priority' && (
-          <PriorityQueue communities={filteredCommunities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} currentUser={currentUser} />
+          <PriorityQueue communities={communities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} currentUser={currentUser} />
         )}
         {activeTab === 'new-report' && (
           <VacancyReportEntry
             communities={communities}
-            communityOptions={filteredCommunities}
             communitiesLoading={communitiesLoading}
-            onSaved={handleSaved}
+            onSaved={goToPreview}
             editReportId={editTarget?.reportId}
             editCommunityId={editTarget?.communityId}
             onDirtyChange={setNewReportDirty}
@@ -175,7 +165,6 @@ export default function App() {
         {activeTab === 'preview' && (
           <ReportPreview
             communities={communities}
-            communityOptions={filteredCommunities}
             communitiesLoading={communitiesLoading}
             initialCommunityId={previewTarget?.communityId}
             initialReportId={previewTarget?.reportId}

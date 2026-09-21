@@ -34,10 +34,7 @@ function AgingFlag({ daysVacant, streak }: { daysVacant?: number; streak: number
 }
 
 interface Props {
-  /** Full list, used for lookups. */
   communities: Community[];
-  /** What the community dropdown offers (after the app-wide slicers). Defaults to `communities`. */
-  communityOptions?: Community[];
   communitiesLoading: boolean;
   initialCommunityId?: string;
   initialReportId?: string;
@@ -50,7 +47,7 @@ const selectStyle: React.CSSProperties = {
   borderRadius: 6, padding: '8px 10px', fontSize: 15, minWidth: 220,
 };
 
-export function ReportPreview({ communities, communityOptions, communitiesLoading, initialCommunityId, initialReportId, isAdmin, onEditReport }: Props) {
+export function ReportPreview({ communities, communitiesLoading, initialCommunityId, initialReportId, isAdmin, onEditReport }: Props) {
   const [communityId, setCommunityId] = useState(initialCommunityId ?? '');
   const [reportId, setReportId] = useState(initialReportId ?? '');
   const [deleting, setDeleting] = useState(false);
@@ -60,9 +57,6 @@ export function ReportPreview({ communities, communityOptions, communitiesLoadin
   useEffect(() => { if (initialReportId) setReportId(initialReportId); }, [initialReportId]);
 
   const community = communities.find(c => c.id === communityId);
-  // Always keep the selected community in the dropdown, even if a slicer has filtered it out.
-  const baseOptions = communityOptions ?? communities;
-  const dropdownCommunities = community && !baseOptions.some(c => c.id === community.id) ? [community, ...baseOptions] : baseOptions;
   const { reports, loading: reportsLoading, deleteReport } = useVacancyReports(communityId || undefined);
   const report = reports.find(r => r.id === reportId) ?? reports[0];
   const { units, loading: unitsLoading } = useUnitUpdates(report?.id);
@@ -121,7 +115,7 @@ export function ReportPreview({ communities, communityOptions, communitiesLoadin
       <div className="no-print" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
         <select style={selectStyle} value={communityId} onChange={e => { setCommunityId(e.target.value); setReportId(''); }}>
           <option value="">{communitiesLoading ? 'Loading…' : 'Select a community…'}</option>
-          {dropdownCommunities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {communities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <select style={selectStyle} value={reportId} onChange={e => setReportId(e.target.value)} disabled={!communityId}>
           <option value="">{reportsLoading ? 'Loading…' : 'Select a report…'}</option>
