@@ -9,7 +9,10 @@ import {
 } from '../../types';
 
 interface Props {
+  /** Full list, used for lookups (so editing or a just-picked community never breaks when a slicer changes). */
   communities: Community[];
+  /** What the Community dropdown offers (after the app-wide slicers). Defaults to `communities`. */
+  communityOptions?: Community[];
   communitiesLoading: boolean;
   onSaved: (communityId: string, reportId: string) => void;
   /** When set, edits that existing report instead of starting a blank new one - see ReportPreview's "Edit This Report" button, only offered for a community's latest report. */
@@ -66,7 +69,7 @@ function Field({ label, children, span, required }: { label: string; children: R
   );
 }
 
-export function VacancyReportEntry({ communities, communitiesLoading, onSaved, editReportId, editCommunityId, onDirtyChange }: Props) {
+export function VacancyReportEntry({ communities, communityOptions, communitiesLoading, onSaved, editReportId, editCommunityId, onDirtyChange }: Props) {
   const isEditMode = !!editReportId;
   const [communityId, setCommunityId] = useState(editCommunityId ?? '');
   const [reportDate, setReportDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -86,6 +89,11 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
   const { createReport, updateReportFields, reports } = useVacancyReports(communityId || undefined);
   const { units: existingUnits, loading: existingUnitsLoading } = useUnitUpdates(editReportId);
   const selectedCommunity = communities.find(c => c.id === communityId);
+  // Always keep the picked community in the dropdown, even if a slicer has since filtered it out.
+  const baseOptions = communityOptions ?? communities;
+  const dropdownCommunities = selectedCommunity && !baseOptions.some(c => c.id === selectedCommunity.id)
+    ? [selectedCommunity, ...baseOptions]
+    : baseOptions;
   const editingReport = isEditMode ? reports.find(r => r.id === editReportId) : undefined;
   const generatedTitle = selectedCommunity && reportDate ? formatReportTitle(selectedCommunity.name, reportDate) : '';
   const isReady = !isEditMode || loadedEditReportId === editReportId;
@@ -217,7 +225,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
           ) : (
             <select style={inputStyle} value={communityId} onChange={e => setCommunityId(e.target.value)}>
               <option value="">{communitiesLoading ? 'Loading…' : 'Select…'}</option>
-              {communities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {dropdownCommunities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           )}
         </div>

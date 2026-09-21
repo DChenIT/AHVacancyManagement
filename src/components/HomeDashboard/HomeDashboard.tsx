@@ -3,20 +3,18 @@ import type { Community } from '../../hooks/useCommunities';
 import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { useVacancyReports } from '../../hooks/useVacancyReports';
 import { useUnitUpdates } from '../../hooks/useUnitUpdates';
-import { useReportCompleteness } from '../../hooks/useReportCompleteness';
 import { STATUS_CATEGORY_LABEL, VACANCY_TYPE_LABEL } from '../../types';
 
 interface Props {
+  /** Full list - used for lookups so the selected community never disappears when a slicer changes. */
   communities: Community[];
+  /** What the sidebar list and Community dropdown offer (the list after the app-wide slicers). Defaults to `communities`. */
+  communityOptions?: Community[];
+  isUpToDate: (communityId: string) => boolean;
   communitiesLoading: boolean;
   onViewReport: (communityId: string, reportId: string) => void;
   currentUser: CurrentUser | null;
 }
-
-type DirectoryRole = 'regionalManager' | 'regionalMaintenanceSupervisor' | 'director' | 'complianceSpecialist';
-const ROLE_LABELS: Record<DirectoryRole, string> = {
-  regionalManager: 'RPS', regionalMaintenanceSupervisor: 'RMS', director: 'Director', complianceSpecialist: 'Compliance Specialist',
-};
 
 function Tile({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
   return (
@@ -39,31 +37,13 @@ function personMatchesUser(name: string | undefined, email: string | undefined, 
   return false;
 }
 
-function distinctValues(communities: Community[], role: DirectoryRole): string[] {
-  const seen = new Set<string>();
-  for (const c of communities) {
-    const v = c[role];
-    if (v) seen.add(v);
-  }
-  return [...seen].sort((a, b) => a.localeCompare(b));
-}
-
-const filterSelectStyle: React.CSSProperties = {
-  width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)',
-  border: '1px solid var(--border)', borderRadius: 6, padding: '5px 6px', fontSize: 13,
-};
-
-export function HomeDashboard({ communities, communitiesLoading, onViewReport, currentUser }: Props) {
+export function HomeDashboard({ communities, communityOptions, isUpToDate, communitiesLoading, onViewReport, currentUser }: Props) {
   const [communityId, setCommunityId] = useState<string>('');
   const [search, setSearch] = useState('');
   const [showMyCommunities, setShowMyCommunities] = useState(false);
-  const [roleFilters, setRoleFilters] = useState<Record<DirectoryRole, string>>({
-    regionalManager: '', regionalMaintenanceSupervisor: '', director: '', complianceSpecialist: '',
-  });
   const autoDefaultedRef = useRef(false);
   const selected = communities.find(c => c.id === communityId);
-
-  const { isUpToDate } = useReportCompleteness();
+  const visible = communityOptions ?? communities;
 
   // Default "Show only my communities" on once communities have loaded, if the signed-in user
   // is actually assigned somewhere - one-time so it doesn't fight with the user unchecking it.
@@ -80,7 +60,7 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
   }, [communitiesLoading, communities, currentUser]);
 
   const filteredCommunities = useMemo(() => {
-    let list = communities;
+    let list = visible;
     const q = search.trim().toLowerCase();
     if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || c.code?.toLowerCase().includes(q));
 
@@ -92,13 +72,14 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
         personMatchesUser(c.complianceSpecialist, c.complianceSpecialistEmail, currentUser.email, currentUser.displayName)
       );
     }
-    if (roleFilters.regionalManager) list = list.filter(c => c.regionalManager === roleFilters.regionalManager);
-    if (roleFilters.regionalMaintenanceSupervisor) list = list.filter(c => c.regionalMaintenanceSupervisor === roleFilters.regionalMaintenanceSupervisor);
-    if (roleFilters.director) list = list.filter(c => c.director === roleFilters.director);
-    if (roleFilters.complianceSpecialist) list = list.filter(c => c.complianceSpecialist === roleFilters.complianceSpecialist);
-
     return list;
-  }, [communities, search, showMyCommunities, roleFilters, currentUser]);
+  }, [visible, search, showMyCommunities, currentUser]);
+
+  // The Community dropdown always offers the currently selected community, even if a slicer has filtered it out of the list.
+  const dropdownCommunities = useMemo(() => {
+    const list = selected && !visible.some(c => c.id === selected.id) ? [selected, ...visible] : visible;
+    return [...list].sort((a, b) => a.name.localeCompare(b.name));
+  }, [visible, selected]);
 
   const { reports, loading: reportsLoading } = useVacancyReports(communityId || undefined);
   const latestReport = reports[0];
@@ -145,7 +126,7 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
             }}
           >
             <option value="">Select…</option>
-            {[...communities].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+            {dropdownCommunities.map(c => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
@@ -156,20 +137,6 @@ export function HomeDashboard({ communities, communitiesLoading, onViewReport, c
             <input type="checkbox" checked={showMyCommunities} onChange={e => setShowMyCommunities(e.target.checked)} style={{ width: 14, height: 14 }} />
             Show only my communities
           </label>
-          {(Object.keys(ROLE_LABELS) as DirectoryRole[]).map(role => (
-            <div key={role} style={{ marginBottom: 6 }}>
-              <select
-                style={filterSelectStyle}
-                value={roleFilters[role]}
-                onChange={e => setRoleFilters(prev => ({ ...prev, [role]: e.target.value }))}
-              >
-                <option value="">{ROLE_LABELS[role]}: All</option>
-                {distinctValues(communities, role).map(name => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-              </select>
-            </div>
-          ))}
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 12px' }}>

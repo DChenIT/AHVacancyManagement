@@ -4,15 +4,17 @@ import { Cr1e9_vacancyreportsesService } from '../generated/services/Cr1e9_vacan
 const ROLLING_WINDOW_DAYS = 7;
 const ROLLING_WINDOW_MS = ROLLING_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 
-// Portfolio-wide: latest report date per community, for the Dashboard's red/green completion
-// indicator. A "Nothing to Report" submission is still a real cr1e9_vacancyreports row (see
-// VacancyReportEntry.tsx), so it counts as reported here with no special-casing needed.
+// Portfolio-wide: latest report date per community, for the red/green completion indicator and
+// the "Submitted / Not submitted" slicer. A "Nothing to Report" submission is still a real
+// cr1e9_vacancyreports row (see VacancyReportEntry.tsx), so it counts as reported here with no
+// special-casing needed.
 export function useReportCompleteness() {
   const [latestDateByCommunity, setLatestDateByCommunity] = useState<Map<string, string>>(new Map());
+  // Only true until the first load finishes - later refreshes are silent so the UI doesn't flicker
+  // back to a loading state every time the data is re-checked.
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
     try {
       const result = await Cr1e9_vacancyreportsesService.getAll({
         select: ['_cr1e9_community_value', 'cr1e9_reportdate'],
@@ -33,11 +35,12 @@ export function useReportCompleteness() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  function isUpToDate(communityId: string): boolean {
+  // Identity only changes when the underlying data does, so it's safe as a useMemo dependency.
+  const isUpToDate = useCallback((communityId: string): boolean => {
     const date = latestDateByCommunity.get(communityId);
     if (!date) return false;
     return Date.now() - new Date(date).getTime() <= ROLLING_WINDOW_MS;
-  }
+  }, [latestDateByCommunity]);
 
   return { isUpToDate, loading, refresh };
 }
