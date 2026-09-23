@@ -17,6 +17,17 @@ export function optionsFromEnum(enumObj: Record<number, string>): { value: numbe
 }
 
 export const VACANCY_TYPE_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_vacancytype);
+
+// A hopper is an approved applicant waiting on a unit, so "Next Available Unit" only makes sense on
+// Hopper rows - a real vacant unit is a specific unit. Matched by label rather than number so it
+// keeps working in any environment where the option got a different value.
+const NEXT_AVAILABLE_UNIT_LABEL = 'Next Available Unit';
+export function isNextAvailableUnit(vacancyType: number): boolean {
+  return VACANCY_TYPE_OPTIONS.find(o => o.value === vacancyType)?.label === NEXT_AVAILABLE_UNIT_LABEL;
+}
+export function vacancyTypeOptionsFor(isHopper: boolean): { value: number; label: string }[] {
+  return isHopper ? VACANCY_TYPE_OPTIONS : VACANCY_TYPE_OPTIONS.filter(o => o.label !== NEXT_AVAILABLE_UNIT_LABEL);
+}
 export const STATUS_CATEGORY_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_currentstatuscategory);
 // Alphabetized by label for the dropdown, per the Affordable Housing Team's request - the
 // underlying option values/order in Dataverse are untouched, this only affects display order.

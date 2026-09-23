@@ -7,6 +7,7 @@ import {
   VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, STATUS_DETAIL_OPTIONS, RISK_LEVEL_OPTIONS,
   REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, PROGRAM_TYPE_OPTIONS, emptyUnitRow, type UnitRowDraft,
   RISK_DAYS_MEDIUM, RISK_DAYS_HIGH, RISK_DAYS_CRITICAL, AMI_PERCENT_OPTIONS, isLihtc,
+  isNextAvailableUnit, vacancyTypeOptionsFor,
 } from '../../types';
 
 interface Props {
@@ -270,7 +271,14 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                 <span style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>Unit {i + 1}</span>
                 <select
                   value={row.isHopper ? 'hopper' : 'vacant'}
-                  onChange={e => updateRow(row.tempId, { isHopper: e.target.value === 'hopper' })}
+                  onChange={e => {
+                    const isHopper = e.target.value === 'hopper';
+                    // Next Available Unit is hopper-only, so switching back to Vacant resets it to the default type.
+                    updateRow(row.tempId, {
+                      isHopper,
+                      ...(!isHopper && isNextAvailableUnit(row.vacancyType) ? { vacancyType: VACANCY_TYPE_OPTIONS[0].value } : {}),
+                    });
+                  }}
                   style={{ ...inputStyle, width: 'auto', padding: '4px 8px', fontSize: 13 }}
                 >
                   <option value="vacant">Vacant</option>
@@ -289,7 +297,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
               </Field>
               <Field label="Vacancy Type" required>
                 <select style={inputStyle} value={row.vacancyType} onChange={e => updateRow(row.tempId, { vacancyType: Number(e.target.value) })}>
-                  {VACANCY_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {vacancyTypeOptionsFor(row.isHopper).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </Field>
               <Field label="Vacant Since">
