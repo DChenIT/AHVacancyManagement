@@ -278,6 +278,7 @@ AddDateColumn      $unitsTable "expectedvacancydate"        "Expected Vacancy Da
 AddDateColumn      $unitsTable "actualvacancydate"          "Actual Vacancy Date"
 AddStringColumn    $unitsTable "currentapplicantname"       "Current Applicant Name" 200 $false
 AddChoiceColumn    $unitsTable "programtype"                "Program Type" @("HUD","LIHTC","Sec 8 Voucher","PHA Project Based Voucher")
+AddChoiceColumn    $unitsTable "amipercent"                 "LIHTC AMI %" @("20%","30%","40%","50%","60%","70%","80%")
 AddChoiceColumn    $unitsTable "currentstatuscategory"      "Current Status Category" @("Rented / Approved","Pending Approval / Compliance","Eligibility File in Progress","Denied / Ineligible","Waitlist","No Applicant","On Hold") $true
 AddDateColumn      $unitsTable "statuscategorydate"         "Status Category Date"
 AddChoiceColumn    $unitsTable "currentstatusdetail"        "Current Status Detail" @("Rented","Move-In Complete","Approved","Approved - Awaiting Lease Signing","Approved - Awaiting Move-In","Submitted to Compliance","Corrections Requested","Corrections Resubmitted","Pending Approval","Verification Pending","Interview Scheduled","Interview Complete","Eligibility in Progress","Applicant Unresponsive","Denied","Ineligible","Withdrawn","Waitlist","Unit Turn in Progress","No Applicant Assigned")

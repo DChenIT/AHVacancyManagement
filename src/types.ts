@@ -5,6 +5,7 @@ import {
   Cr1e9_unitupdatesescr1e9_vacancytype,
   Cr1e9_unitupdatesescr1e9_turnreadiness,
   Cr1e9_unitupdatesescr1e9_programtype,
+  Cr1e9_unitupdatesescr1e9_amipercent,
 } from './generated/models/Cr1e9_unitupdatesesModel';
 import {
   Cr1e9_vacancyreportsescr1e9_reportingperiod,
@@ -26,6 +27,12 @@ export const REPORTING_PERIOD_OPTIONS = optionsFromEnum(Cr1e9_vacancyreportsescr
 export const REPORT_STATUS_OPTIONS = optionsFromEnum(Cr1e9_vacancyreportsescr1e9_reportstatus);
 export const TURN_STATUS_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_turnreadiness);
 export const PROGRAM_TYPE_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_programtype);
+export const AMI_PERCENT_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_amipercent);
+
+// The AMI % dropdown only applies to (and only shows for) the LIHTC program type.
+export function isLihtc(programType: number | undefined): boolean {
+  return PROGRAM_TYPE_OPTIONS.find(o => o.value === programType)?.label === 'LIHTC';
+}
 
 export const STATUS_CATEGORY_LABEL = Cr1e9_unitupdatesescr1e9_currentstatuscategory;
 export const STATUS_DETAIL_LABEL = Cr1e9_unitupdatesescr1e9_currentstatusdetail;
@@ -93,6 +100,8 @@ export interface UnitRowDraft {
   ntvDate: string;
   turnStatus?: number;
   programType?: number;
+  /** LIHTC AMI % choice value - only meaningful when programType is LIHTC. */
+  amiPercent?: number;
   /** Marks this row as tracking an approved-applicant "hopper" rather than an open vacancy — mirrors cr1e9_approvedhopper. */
   isHopper: boolean;
   /** Only meaningful when isHopper is true — the date this hopper's file is considered stale and needs follow-up. */
@@ -118,6 +127,7 @@ export function emptyUnitRow(): UnitRowDraft {
     ntvDate: '',
     turnStatus: undefined,
     programType: undefined,
+    amiPercent: undefined,
     isHopper: false,
     staleDate: '',
   };

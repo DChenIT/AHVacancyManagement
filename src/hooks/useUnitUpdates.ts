@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Cr1e9_unitupdatesesService } from '../generated/services/Cr1e9_unitupdatesesService';
-import type { UnitRowDraft } from '../types';
+import { isLihtc, type UnitRowDraft } from '../types';
 
 export interface UnitUpdate {
   id: string;
@@ -22,6 +22,7 @@ export interface UnitUpdate {
   ntvDate?: string;
   turnStatus?: number;
   programType?: number;
+  amiPercent?: number;
   staleDate?: string;
 }
 
@@ -30,7 +31,7 @@ const UNIT_SELECT = [
   'cr1e9_currentapplicantname', 'cr1e9_currentstatuscategory', 'cr1e9_currentstatusdetail',
   'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_risklevel', 'cr1e9_approvedhopper',
   'cr1e9_actualvacancydate', 'cr1e9_expectedvacancydate', 'cr1e9_expectedmoveindate', 'cr1e9_ntvdate',
-  'cr1e9_turnreadiness', 'cr1e9_programtype', 'cr1e9_staledate',
+  'cr1e9_turnreadiness', 'cr1e9_programtype', 'cr1e9_amipercent', 'cr1e9_staledate',
   'cr1e9_statuscategorydate', 'cr1e9_statusdetaildate',
 ];
 
@@ -54,6 +55,7 @@ function mapUnit(raw: {
   cr1e9_ntvdate?: string;
   cr1e9_turnreadiness?: number;
   cr1e9_programtype?: number;
+  cr1e9_amipercent?: number;
   cr1e9_staledate?: string;
 }): UnitUpdate {
   return {
@@ -76,6 +78,7 @@ function mapUnit(raw: {
     ntvDate: raw.cr1e9_ntvdate ? raw.cr1e9_ntvdate.split('T')[0] : undefined,
     turnStatus: raw.cr1e9_turnreadiness,
     programType: raw.cr1e9_programtype,
+    amiPercent: raw.cr1e9_amipercent,
     staleDate: raw.cr1e9_staledate ? raw.cr1e9_staledate.split('T')[0] : undefined,
   };
 }
@@ -101,6 +104,7 @@ export function toUnitRowDraft(unit: UnitUpdate): UnitRowDraft {
     ntvDate: unit.ntvDate ?? '',
     turnStatus: unit.turnStatus,
     programType: unit.programType,
+    amiPercent: unit.amiPercent,
     isHopper: unit.approvedHopper,
     staleDate: unit.staleDate ?? '',
   };
@@ -124,6 +128,7 @@ function unitRowPayload(row: UnitRowDraft) {
     cr1e9_ntvdate: row.ntvDate || undefined,
     cr1e9_turnreadiness: row.turnStatus as any,
     cr1e9_programtype: row.programType as any,
+    cr1e9_amipercent: (isLihtc(row.programType) ? row.amiPercent : undefined) as any,
     cr1e9_approvedhopper: row.isHopper,
     cr1e9_staledate: row.isHopper ? (row.staleDate || undefined) : undefined,
   };

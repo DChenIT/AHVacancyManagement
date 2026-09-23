@@ -5,7 +5,7 @@ import { useUnitUpdates, createUnitRows, updateUnitRow, deleteUnit, toUnitRowDra
 import {
   VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, STATUS_DETAIL_OPTIONS, RISK_LEVEL_OPTIONS,
   REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, PROGRAM_TYPE_OPTIONS, emptyUnitRow, type UnitRowDraft,
-  RISK_DAYS_MEDIUM, RISK_DAYS_HIGH, RISK_DAYS_CRITICAL,
+  RISK_DAYS_MEDIUM, RISK_DAYS_HIGH, RISK_DAYS_CRITICAL, AMI_PERCENT_OPTIONS, isLihtc,
 } from '../../types';
 
 interface Props {
@@ -301,11 +301,22 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                 <input style={inputStyle} value={row.currentApplicantName} onChange={e => updateRow(row.tempId, { currentApplicantName: e.target.value })} placeholder="Applicant name" />
               </Field>
               <Field label="Program Type">
-                <select style={inputStyle} value={row.programType ?? ''} onChange={e => updateRow(row.tempId, { programType: e.target.value ? Number(e.target.value) : undefined })}>
+                <select style={inputStyle} value={row.programType ?? ''} onChange={e => {
+                  const programType = e.target.value ? Number(e.target.value) : undefined;
+                  updateRow(row.tempId, { programType, ...(isLihtc(programType) ? {} : { amiPercent: undefined }) });
+                }}>
                   <option value="">—</option>
                   {PROGRAM_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </Field>
+              {isLihtc(row.programType) && (
+                <Field label="LIHTC AMI %">
+                  <select style={inputStyle} value={row.amiPercent ?? ''} onChange={e => updateRow(row.tempId, { amiPercent: e.target.value ? Number(e.target.value) : undefined })}>
+                    <option value="">—</option>
+                    {AMI_PERCENT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </Field>
+              )}
               <Field label="Expected Move-In">
                 <input type="date" style={inputStyle} value={row.expectedMoveInDate} onChange={e => updateRow(row.tempId, { expectedMoveInDate: e.target.value })} />
               </Field>
