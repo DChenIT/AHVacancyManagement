@@ -283,3 +283,11 @@ After the SharePoint connector was abandoned for good, the user proposed a bette
 - The Dashboard takes the FULL list for lookups plus a `communityOptions` (filtered) list for what it offers to pick, and always keeps the currently selected community in its dropdown, so changing a slicer never blanks the selected community's details.
 - Asset Manager is a filter only - it's name-only data from the CSV import; there's no `assetmanageremail` column and it isn't in `TeamRole`, so it can't be assigned from the Admin people picker yet.
 - The Dashboard's own four role dropdowns were removed (the bar replaces them); its search, Community picker and "Show only my communities" stay.
+
+## Save Report: partial saves and duplicate reports (2026-09-23)
+
+A user typed a date with a 6-digit year (`08/17/172026` - a date input accepts it), Dataverse rejected it with an `Edm.Date` conversion error, and because saving is non-atomic (create the report, then create each unit row one at a time) the report and the first 6 of 12 units were already saved. The form kept all 12 rows, so each retry created ANOTHER report with the same first 6 units - five near-identical reports for one community/week. Fixes in `VacancyReportEntry.tsx`:
+- `findDateProblem` validates the report date and every date field on every saved row (year must be 2000-2100) BEFORE anything is written, and names the unit + field in the error.
+- A `pendingSaveRef` remembers a report that was created but not fully populated (plus which rows already saved, by `tempId`); pressing Save again finishes that same report instead of creating a duplicate. Edit mode has the equivalent (`createdInEditRef`, fed by `createUnitRows` now returning the new ids). This deliberately does NOT roll back by deleting the partial report: the base security role has no Delete on Vacancy Reports (admin-only), so a rollback would 403 for exactly the staff who need it.
+- Long raw Dataverse errors are truncated on screen (full error goes to the console).
+- Not done: a "this community already has a report for this date" guard. Would be a behavior change (are same-week duplicates ever legitimate?) so it needs the user's call.

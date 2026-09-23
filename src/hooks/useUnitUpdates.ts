@@ -180,14 +180,18 @@ export async function deleteUnitsForReport(vacancyReportId: string): Promise<voi
   }
 }
 
-export async function createUnitRows(vacancyReportId: string, rows: UnitRowDraft[]): Promise<void> {
+/** Returns the new record ids in the same order as `rows`, so a caller can remember which rows already went through. */
+export async function createUnitRows(vacancyReportId: string, rows: UnitRowDraft[]): Promise<string[]> {
+  const ids: string[] = [];
   for (const row of rows) {
     const result = await Cr1e9_unitupdatesesService.create({
       ...unitRowPayload(row),
       'cr1e9_vacancyreport@odata.bind': `/cr1e9_vacancyreportses(${vacancyReportId})`,
     } as any);
     if (result.error) throw new Error(result.error.message ?? `Failed to create unit ${row.unitNumber}`);
+    ids.push(result.data?.cr1e9_unitupdatesid ?? '');
   }
+  return ids;
 }
 
 export async function updateUnitRow(unitId: string, row: UnitRowDraft): Promise<void> {

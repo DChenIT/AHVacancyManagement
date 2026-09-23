@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Community } from '../../hooks/useCommunities';
 import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { useVacancyReports } from '../../hooks/useVacancyReports';
@@ -53,6 +53,44 @@ function calculateRiskLevel(actualVacancyDate: string, reportDate: string): numb
   return RISK_LEVEL_OPTIONS.find(o => o.label === label)?.value;
 }
 
+// A date input will happily accept a 6-digit year (08/17/172026), which Dataverse then rejects
+// halfway through a save. Catch it up front instead, before anything is written.
+const ROW_DATE_FIELDS: { key: keyof UnitRowDraft; label: string }[] = [
+  { key: 'actualVacancyDate', label: 'Vacant Since' },
+  { key: 'ntvDate', label: 'NTV Date' },
+  { key: 'expectedVacancyDate', label: 'Expected Move-Out' },
+  { key: 'expectedMoveInDate', label: 'Expected Move-In' },
+  { key: 'nextStepDueDate', label: 'Next Step Due' },
+  { key: 'statusCategoryDate', label: 'Status Category Date' },
+  { key: 'statusDetailDate', label: 'Status Detail Date' },
+  { key: 'staleDate', label: 'Stale Date' },
+];
+
+function isSaneDate(value: string): boolean {
+  const m = /^(\d{4,6})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return false;
+  const year = Number(m[1]);
+  return year >= 2000 && year <= 2100;
+}
+
+function findDateProblem(rows: UnitRowDraft[], reportDate: string): string | null {
+  if (!isSaneDate(reportDate)) return `The Report Date (${reportDate || 'blank'}) isn't a valid date - please correct it.`;
+  for (const [i, row] of rows.entries()) {
+    for (const field of ROW_DATE_FIELDS) {
+      if (field.key === 'staleDate' && !row.isHopper) continue; // only saved for hopper rows
+      const value = row[field.key] as string;
+      if (value && !isSaneDate(value)) {
+        return `Unit ${row.unitNumber.trim() || i + 1}: "${field.label}" has an invalid date (${value}) - the year looks mistyped. Please correct it and save again. Nothing was saved.`;
+      }
+    }
+  }
+  return null;
+}
+
+// Set once a new report has been created but before all its units are saved, so pressing Save
+// again finishes that report instead of creating a duplicate.
+interface PendingSave { reportId: string; communityId: string; reportDate: string; savedTempIds: Set<string> }
+
 const RISK_LEVEL_COLOR: Record<string, string> = {
   Low: 'var(--success)', Medium: 'var(--warning)', High: 'var(--danger)', Critical: 'var(--purple)',
 };
@@ -86,6 +124,9 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
   // "has content" isn't the same as "has unsaved changes." Set on actual edits, cleared whenever
   // the form is (re)seeded from a known-clean source (fresh load, reset, or a successful save).
   const [hasUnsavedEdits, setHasUnsavedEdits] = useState(false);
+  const pendingSaveRef = useRef<PendingSave | null>(null);
+  // Edit mode: rows created during a save that failed partway, so a retry updates them instead of creating them twice.
+  const createdInEditRef = useRef<Map<string, string>>(new Map());
 
   const { createReport, updateReportFields, reports } = useVacancyReports(communityId || undefined);
   const { units: existingUnits, loading: existingUnitsLoading } = useUnitUpdates(editReportId);
@@ -109,6 +150,8 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     setOriginalUnitIds(existingUnits.map(u => u.id));
     setLoadedEditReportId(editReportId);
     setHasUnsavedEdits(false);
+    pendingSaveRef.current = null;
+    createdInEditRef.current = new Map();
   }, [isEditMode, editReportId, editCommunityId, editingReport, existingUnits, existingUnitsLoading, loadedEditReportId]);
 
   // Leaving edit mode (editReportId cleared, e.g. via the New Report nav tab) resets to a blank form.
@@ -122,6 +165,8 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     setOriginalUnitIds([]);
     setLoadedEditReportId(undefined);
     setHasUnsavedEdits(false);
+    pendingSaveRef.current = null;
+    createdInEditRef.current = new Map();
   }, [editReportId, editCommunityId]);
 
   function updateRow(tempId: string, patch: Partial<UnitRowDraft>) {
@@ -158,30 +203,57 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     setSaveError(null);
     setSaveSuccess(false);
     try {
+      const dateProblem = findDateProblem(nothingToReport ? [] : validRows, reportDate);
+      if (dateProblem) {
+        setSaveError(dateProblem);
+        return;
+      }
       const currentValidRows = nothingToReport ? [] : validRows.map(r => ({
         ...r, riskLevel: calculateRiskLevel(r.actualVacancyDate, reportDate),
       }));
       if (isEditMode && editReportId) {
         for (const row of currentValidRows) {
-          if (row.unitId) await updateUnitRow(row.unitId, row);
-          else await createUnitRows(editReportId, [row]);
+          const knownId = row.unitId ?? createdInEditRef.current.get(row.tempId);
+          if (knownId) {
+            await updateUnitRow(knownId, row);
+          } else {
+            const [newId] = await createUnitRows(editReportId, [row]);
+            if (newId) createdInEditRef.current.set(row.tempId, newId);
+          }
         }
         const keptIds = new Set(currentValidRows.map(r => r.unitId).filter((id): id is string => !!id));
         for (const id of originalUnitIds) {
           if (!keptIds.has(id)) await deleteUnit(id);
         }
         await updateReportFields(editReportId, { notes: notes.trim(), nothingToReport });
+        createdInEditRef.current = new Map();
         setSaveSuccess(true);
         setHasUnsavedEdits(false);
         onSaved(communityId, editReportId);
       } else {
-        const reportId = await createReport({
-          communityId, title: generatedTitle, reportDate, reportingPeriod: WEEKLY_REPORTING_PERIOD,
-          notes: notes.trim() || undefined, nothingToReport,
-          // useCurrentUser falls back to the placeholder "Me" when the user lookup fails - not a real name to store.
-          submittedBy: currentUser && currentUser.displayName !== 'Me' ? currentUser.displayName : currentUser?.email || undefined,
-        });
-        if (currentValidRows.length > 0) await createUnitRows(reportId, currentValidRows);
+        let pending = pendingSaveRef.current;
+        if (pending && (pending.communityId !== communityId || pending.reportDate !== reportDate)) pending = null;
+        if (!pending) {
+          const newReportId = await createReport({
+            communityId, title: generatedTitle, reportDate, reportingPeriod: WEEKLY_REPORTING_PERIOD,
+            notes: notes.trim() || undefined, nothingToReport,
+            // useCurrentUser falls back to the placeholder "Me" when the user lookup fails - not a real name to store.
+            submittedBy: currentUser && currentUser.displayName !== 'Me' ? currentUser.displayName : currentUser?.email || undefined,
+          });
+          pending = { reportId: newReportId, communityId, reportDate, savedTempIds: new Set<string>() };
+          pendingSaveRef.current = pending;
+        } else {
+          // An earlier attempt already created this report but failed partway through its units -
+          // finish that one (syncing any notes changes) rather than creating a duplicate.
+          await updateReportFields(pending.reportId, { notes: notes.trim(), nothingToReport });
+        }
+        for (const row of currentValidRows) {
+          if (pending.savedTempIds.has(row.tempId)) continue;
+          await createUnitRows(pending.reportId, [row]);
+          pending.savedTempIds.add(row.tempId);
+        }
+        const reportId = pending.reportId;
+        pendingSaveRef.current = null;
         setSaveSuccess(true);
         setRows([emptyUnitRow()]);
         setNotes('');
@@ -190,7 +262,12 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
         onSaved(communityId, reportId);
       }
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : String(e));
+      console.error('Save report failed', e);
+      const raw = e instanceof Error ? e.message : String(e);
+      const short = raw.length > 300 ? `${raw.slice(0, 300)}…` : raw;
+      setSaveError(!isEditMode && pendingSaveRef.current
+        ? `${short} — this report was only partly saved. Fix the problem and press Save again to finish it (it won't be duplicated).`
+        : short);
     } finally {
       setSaving(false);
     }
