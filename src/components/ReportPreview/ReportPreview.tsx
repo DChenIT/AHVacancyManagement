@@ -165,6 +165,7 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
             </div>
             <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>
               {report.title} · {report.reportDate} · Status: {REPORT_STATUS_OPTIONS.find(o => o.value === report.reportStatus)?.label ?? '—'}
+              {' · '}Submitted by: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{report.submittedBy ?? '—'}</strong>
               {unitsLoading && <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>Refreshing…</span>}
             </div>
             {report.nothingToReport && (

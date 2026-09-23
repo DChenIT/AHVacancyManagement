@@ -257,6 +257,7 @@ CreateTableIfMissing $reportsTable "Vacancy Report" "Vacancy Reports" "Report Ti
 AddDateColumn      $reportsTable "reportdate"           "Report Date" $true
 AddChoiceColumn    $reportsTable "reportingperiod"      "Reporting Period" @("Weekly","Monthly","Ad Hoc")
 AddChoiceColumn    $reportsTable "reportstatus"         "Report Status" @("Draft","Review Required","Approved") $true
+AddStringColumn    $reportsTable "submittedby"          "Submitted By" 200 $false
 AddStringColumn    $reportsTable "reviewedby"           "Reviewed By" 200 $false
 AddDateColumn      $reportsTable "revieweddate"         "Reviewed Date"
 AddStringColumn    $reportsTable "approvedby"           "Approved By" 200 $false

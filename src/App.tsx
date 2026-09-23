@@ -160,6 +160,7 @@ export default function App() {
             editReportId={editTarget?.reportId}
             editCommunityId={editTarget?.communityId}
             onDirtyChange={setNewReportDirty}
+            currentUser={currentUser}
           />
         )}
         {activeTab === 'preview' && (

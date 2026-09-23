@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Community } from '../../hooks/useCommunities';
+import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { useVacancyReports } from '../../hooks/useVacancyReports';
 import { useUnitUpdates, createUnitRows, updateUnitRow, deleteUnit, toUnitRowDraft } from '../../hooks/useUnitUpdates';
 import {
@@ -17,6 +18,8 @@ interface Props {
   editCommunityId?: string;
   /** Fires whenever unsaved-changes state changes, so the parent can warn before switching tabs. */
   onDirtyChange?: (dirty: boolean) => void;
+  /** Recorded as the report's "Submitted By" when a new report is created. */
+  currentUser: CurrentUser | null;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -66,7 +69,7 @@ function Field({ label, children, span, required }: { label: string; children: R
   );
 }
 
-export function VacancyReportEntry({ communities, communitiesLoading, onSaved, editReportId, editCommunityId, onDirtyChange }: Props) {
+export function VacancyReportEntry({ communities, communitiesLoading, onSaved, editReportId, editCommunityId, onDirtyChange, currentUser }: Props) {
   const isEditMode = !!editReportId;
   const [communityId, setCommunityId] = useState(editCommunityId ?? '');
   const [reportDate, setReportDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -174,6 +177,8 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
         const reportId = await createReport({
           communityId, title: generatedTitle, reportDate, reportingPeriod: WEEKLY_REPORTING_PERIOD,
           notes: notes.trim() || undefined, nothingToReport,
+          // useCurrentUser falls back to the placeholder "Me" when the user lookup fails - not a real name to store.
+          submittedBy: currentUser && currentUser.displayName !== 'Me' ? currentUser.displayName : currentUser?.email || undefined,
         });
         if (currentValidRows.length > 0) await createUnitRows(reportId, currentValidRows);
         setSaveSuccess(true);

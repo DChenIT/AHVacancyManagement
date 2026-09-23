@@ -10,6 +10,8 @@ export interface VacancyReport {
   reportStatus: number;
   notes?: string;
   nothingToReport: boolean;
+  /** Who created the report - set once at creation and not changed by later edits. */
+  submittedBy?: string;
 }
 
 function mapReport(raw: {
@@ -21,6 +23,7 @@ function mapReport(raw: {
   cr1e9_reportstatus: number;
   cr1e9_additionalnotes?: string;
   cr1e9_nothingtoreport?: boolean;
+  cr1e9_submittedby?: string;
 }): VacancyReport {
   return {
     id: raw.cr1e9_vacancyreportsid,
@@ -31,12 +34,14 @@ function mapReport(raw: {
     reportStatus: raw.cr1e9_reportstatus,
     notes: raw.cr1e9_additionalnotes || undefined,
     nothingToReport: raw.cr1e9_nothingtoreport ?? false,
+    submittedBy: raw.cr1e9_submittedby || undefined,
   };
 }
 
 const REPORT_SELECT = [
   'cr1e9_vacancyreportsid', '_cr1e9_community_value', 'cr1e9_name', 'cr1e9_reportdate',
   'cr1e9_reportingperiod', 'cr1e9_reportstatus', 'cr1e9_additionalnotes', 'cr1e9_nothingtoreport',
+  'cr1e9_submittedby',
 ];
 
 export function useVacancyReports(communityId?: string) {
@@ -78,6 +83,7 @@ export function useVacancyReports(communityId?: string) {
     reportingPeriod: number;
     notes?: string;
     nothingToReport?: boolean;
+    submittedBy?: string;
   }): Promise<string> => {
     const result = await Cr1e9_vacancyreportsesService.create({
       cr1e9_name: input.title,
@@ -86,6 +92,7 @@ export function useVacancyReports(communityId?: string) {
       cr1e9_reportstatus: 100000000 as any, // Draft
       cr1e9_additionalnotes: input.notes || undefined,
       cr1e9_nothingtoreport: input.nothingToReport ?? false,
+      cr1e9_submittedby: input.submittedBy || undefined,
       'cr1e9_community@odata.bind': `/cr1e9_communitieses(${input.communityId})`,
     } as any);
     if (result.error || !result.data) throw new Error(result.error?.message ?? 'Failed to create vacancy report');

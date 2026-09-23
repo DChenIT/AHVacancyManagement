@@ -228,7 +228,7 @@ export function HomeDashboard({ communities, communityOptions, isUpToDate, commu
                       }}
                     >
                       <span>{r.title}{r.nothingToReport ? ' · Nothing to Report' : ''}</span>
-                      <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{r.reportDate}</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{r.submittedBy ? `${r.submittedBy} · ` : ''}{r.reportDate}</span>
                     </button>
                   ))}
                 </div>
