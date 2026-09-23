@@ -273,8 +273,8 @@ This is an environment setting, **not** part of the solution, so it does not tra
 New reports record who submitted them automatically (a `Submitted By` column on Vacancy Reports, shown on Report Preview and the Dashboard's Recent Reports). Reports created before that column existed stay blank until you run this once against each environment that already has reports (solution import brings the column, not any data):
 
 ```powershell
-.\scriptsackfill-report-submitter.ps1 -OrgUrl "https://yourorg.crm.dynamics.com" -DryRun   # counts only
-.\scriptsackfill-report-submitter.ps1 -OrgUrl "https://yourorg.crm.dynamics.com"
+.\scripts\backfill-report-submitter.ps1 -OrgUrl "https://yourorg.crm.dynamics.com" -DryRun   # counts only
+.\scripts\backfill-report-submitter.ps1 -OrgUrl "https://yourorg.crm.dynamics.com"
 ```
 
 It uses Dataverse's own Created By on each report (the app writes as the signed-in user, so that is who submitted it), only fills reports whose Submitted By is empty, and is safe to re-run.
