@@ -195,16 +195,18 @@ Unlike some other Code Apps, this one doesn't have an automated script for this 
 Beyond the obvious Read/Create/Write, the app also sets a lookup at creation time in two places (a new report binds itself to its Community; a new unit row binds itself to its Report) — Dataverse treats setting a lookup at create as an associate operation, which needs **Append** on the record being attached and **Append To** on the record it's attaching to, on top of Create. Missing these produces a `PrivilegeDenied` / `prvAppendTo...` error the first time someone tries the affected action, even though Create/Write alone look sufficient. Both tables below already account for this.
 
 1. Go to **https://admin.powerplatform.microsoft.com**, click your environment, then **Settings → Users + permissions → Security roles**.
-2. Click **+ New role**. Name it something like **"APP - AH Community Pulse"**. Set these privileges (staff can only edit/delete records they personally created — that's intentional, Create/Write/Delete stay at **User** level; only the admin role below can touch anyone else's):
+2. Click **+ New role**. Name it something like **"APP - AH Community Pulse"**. Set these privileges (staff can only create, and delete, records they personally created — that's intentional, so those stay at **User** level, with one deliberate exception: **Write on Unit Updates is Organization**, see below):
 
    | Table | Read | Create | Write | Delete | Append | Append To |
    |---|---|---|---|---|---|---|
    | Communities | Organization | | | | | Organization |
    | Vacancy Reports | Organization | User | User | | User | User |
-   | Unit Updates | Organization | User | User | User | User | |
+   | Unit Updates | Organization | User | Organization | User | User | |
    | App Settings | Organization | | | | | |
    | Applicant Update History | Organization | | | | | |
    | Report Configuration | Organization | | | | | |
+
+   **Why Unit Updates Write is Organization:** ticking "Reviewed" on a Fast-Track item writes to a unit row that is usually owned by whoever entered that report, so User-level Write makes the checkbox fail for everyone but the original author. (Before the checkbox showed an error it just appeared to do nothing.) This does let any staff member change any unit row they can reach; Create and Delete stay User-level. If staff also need to *add or remove* units on someone else's report while editing it, they'd additionally need Append To on Vacancy Reports and Delete on Unit Updates at Organization - not needed for the review checkbox.
 
    Communities' **Append To** has to be Organization level (not User) even though everything else on this role is User-scoped — staff didn't create the Community rows (the CSV import / admin did), so a narrower level would block filing a report against almost every community.
 3. Save it.
