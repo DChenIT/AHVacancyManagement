@@ -53,10 +53,26 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [fastTrackTab, setFastTrackTab] = useState<'active' | 'reviewed'>('active');
 
+  // A failed save used to be silent (the checkbox just did nothing), which made a permissions
+  // problem look like a broken button - surface it instead.
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  function describeReviewError(action: string, e: unknown): string {
+    console.error(`${action} failed`, e);
+    const raw = e instanceof Error ? e.message : String(e);
+    const permission = /privilege|prv[A-Z]|forbidden|403/i.test(raw);
+    const short = raw.length > 200 ? `${raw.slice(0, 200)}…` : raw;
+    return permission
+      ? `Couldn't ${action}: you don't have permission to update this unit. Ask an admin to check your security role.`
+      : `Couldn't ${action}: ${short}`;
+  }
+
   async function handleMarkReviewed(unitId: string) {
     setReviewingId(unitId);
+    setReviewError(null);
     try {
       await markReviewed(unitId, currentUser?.displayName || 'Unknown');
+    } catch (e) {
+      setReviewError(describeReviewError('mark this reviewed', e));
     } finally {
       setReviewingId(null);
     }
@@ -69,8 +85,11 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
 
   async function handleUnmarkReviewed(unitId: string) {
     setReviewingId(unitId);
+    setReviewError(null);
     try {
       await unmarkReviewed(unitId);
+    } catch (e) {
+      setReviewError(describeReviewError('unmark this', e));
     } finally {
       setReviewingId(null);
     }
@@ -155,6 +174,12 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
             <span aria-hidden="true">⚡</span>
             <span style={{ color: 'var(--text-primary)', fontSize: 15, fontWeight: 700 }}>Fast-Track Approvals</span>
           </div>
+          {reviewError && (
+            <div role="alert" style={{
+              backgroundColor: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 6,
+              padding: '8px 12px', fontSize: 13, fontWeight: 600, margin: '6px 0 10px',
+            }}>⚠ {reviewError}</div>
+          )}
           <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 0, marginBottom: 10 }}>
             Units already submitted to compliance or awaiting corrections — these are expected to fill fastest, so they're called out first.
           </p>
