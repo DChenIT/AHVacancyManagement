@@ -83,11 +83,11 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
     return reviewedBy.trim().toLowerCase() === currentUser.displayName.trim().toLowerCase();
   }
 
-  async function handleUnmarkReviewed(unitId: string) {
+  async function handleUnmarkReviewed(unitId: string, wasDenied: boolean) {
     setReviewingId(unitId);
     setReviewError(null);
     try {
-      await unmarkReviewed(unitId);
+      await unmarkReviewed(unitId, wasDenied);
     } catch (e) {
       setReviewError(describeReviewError('unmark this', e));
     } finally {
@@ -285,7 +285,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
                       <td style={{ padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
                         {canUnmark(u.reviewedBy) && (
                           <button
-                            onClick={() => handleUnmarkReviewed(u.unitId)}
+                            onClick={() => handleUnmarkReviewed(u.unitId, u.reviewOutcome === 'Denied')}
                             disabled={reviewingId === u.unitId}
                             title="Only the person who reviewed this can unmark it"
                             style={{

@@ -300,3 +300,4 @@ Team members' "Reviewed" checkbox silently did nothing: it writes to a unit row 
 - Replaced the Priority Queue "Reviewed" checkbox with a **Review Status** dropdown: Approved / Corrections Requested / Denied.
 - New column `cr1e9_fasttrackreviewoutcome` (choice, 100000000–100000002) on `cr1e9_unitupdates`; added to `setup-dataverse.ps1` and solution `AHCommunityPulse`.
 - Picking an option sets reviewed=true + reviewer/date + outcome; the row moves to the Reviewed tab, which now shows Review Status. Unmark clears the outcome. Units reviewed before this change show "Reviewed".
+- Choosing **Denied** in the Fast-Track dropdown also sets the unit's Status Detail to Denied (and Status Detail Date to today). Denied units stay on the Reviewed tab. Unmarking a denial restores Status Detail to Submitted to Compliance.

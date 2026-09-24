@@ -17,6 +17,10 @@ const OUTCOME_CODE = Object.fromEntries(
   Object.entries(OUTCOME_ENUM).map(([code, label]) => [label, Number(code)]),
 ) as Record<ReviewOutcome, number>;
 
+const DETAIL_CODE = Object.fromEntries(
+  Object.entries(STATUS_DETAIL_LABEL).map(([code, label]) => [label, Number(code)]),
+) as Record<string, number>;
+
 export interface FastTrackUnit {
   unitId: string;
   communityId: string;
@@ -88,7 +92,10 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
         if (!info) continue; // not the community's latest report - out of scope for this callout
         if (u.cr1e9_approvedhopper) continue; // hopper files aren't vacancies to chase, so they don't belong in this list
         const detailLabel = STATUS_DETAIL_LABEL[u.cr1e9_currentstatusdetail as keyof typeof STATUS_DETAIL_LABEL];
-        if (!detailLabel || !FAST_TRACK_DETAILS.has(detailLabel)) continue;
+        // A unit denied from this list has its status detail set to Denied, so it has to stay visible
+        // here (on the Reviewed tab) even though Denied isn't a fast-track status.
+        const keptAsDenied = detailLabel === 'Denied' && !!u.cr1e9_fasttrackreviewed;
+        if (!detailLabel || !(FAST_TRACK_DETAILS.has(detailLabel) || keptAsDenied)) continue;
         const community = communityById.get(info.communityId);
         if (!community) continue;
 
@@ -127,11 +134,14 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
   useEffect(() => { refresh(); }, [refresh]);
 
   const markReviewed = useCallback(async (unitId: string, reviewerName: string, outcome: ReviewOutcome) => {
+    const today = new Date().toISOString().split('T')[0];
     const result = await Cr1e9_unitupdatesesService.update(unitId, {
       cr1e9_fasttrackreviewed: true,
       cr1e9_fasttrackreviewoutcome: OUTCOME_CODE[outcome],
       cr1e9_fasttrackreviewedby: reviewerName,
-      cr1e9_fasttrackrevieweddate: new Date().toISOString().split('T')[0],
+      cr1e9_fasttrackrevieweddate: today,
+      // Denied is a final status, so the unit's own status detail follows it.
+      ...(outcome === 'Denied' ? { cr1e9_currentstatusdetail: DETAIL_CODE.Denied, cr1e9_statusdetaildate: today } : {}),
     } as any);
     if (result.error) throw new Error(result.error.message ?? 'Failed to mark reviewed');
     await refresh();
@@ -140,7 +150,7 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
   // Only meant to be called after the caller has confirmed reviewedBy matches the signed-in
   // user - this is a UI-level courtesy (same trust model as the rest of the app's name-based
   // checks like "Show only my communities"), not a Dataverse-enforced security boundary.
-  const unmarkReviewed = useCallback(async (unitId: string) => {
+  const unmarkReviewed = useCallback(async (unitId: string, wasDenied = false) => {
     // Explicit null (not undefined) - Dataverse only clears a field when the property is
     // actually present in the PATCH body with a null value; an omitted key leaves it unchanged.
     const result = await Cr1e9_unitupdatesesService.update(unitId, {
@@ -148,6 +158,9 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
       cr1e9_fasttrackreviewoutcome: null,
       cr1e9_fasttrackreviewedby: null,
       cr1e9_fasttrackrevieweddate: null,
+      // Undoing a denial puts the unit back in the queue it came from (we don't keep the prior detail,
+      // so it returns as Submitted to Compliance).
+      ...(wasDenied ? { cr1e9_currentstatusdetail: DETAIL_CODE['Submitted to Compliance'], cr1e9_statusdetaildate: new Date().toISOString().split('T')[0] } : {}),
     } as any);
     if (result.error) throw new Error(result.error.message ?? 'Failed to unmark reviewed');
     await refresh();
