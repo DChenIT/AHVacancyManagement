@@ -5,6 +5,7 @@ import { useIsAdmin } from './hooks/useIsAdmin';
 import { useReportCompleteness } from './hooks/useReportCompleteness';
 import { Navigation, type Tab } from './components/shared/Navigation';
 import { GlobalFilterBar, EMPTY_FILTERS, applyRoleFilters, type GlobalFilters } from './components/shared/GlobalFilterBar';
+import { SurveyPrompt } from './components/shared/SurveyPrompt';
 import { HomeDashboard } from './components/HomeDashboard/HomeDashboard';
 import { PriorityQueue } from './components/PriorityQueue/PriorityQueue';
 import { VacancyReportEntry } from './components/VacancyReportEntry/VacancyReportEntry';
@@ -24,6 +25,7 @@ export default function App() {
   const [previewTarget, setPreviewTarget] = useState<{ communityId: string; reportId: string } | undefined>();
   const [editTarget, setEditTarget] = useState<{ communityId: string; reportId: string } | undefined>();
   const [newReportDirty, setNewReportDirty] = useState(false);
+  const [showSurveyPrompt, setShowSurveyPrompt] = useState(false);
 
   const { communities, loading: communitiesLoading, updateCommunity, assignTeamMember } = useCommunities();
   const { currentUser } = useCurrentUser();
@@ -65,6 +67,12 @@ export default function App() {
     setActiveTab('preview');
   }
 
+  // Only a brand-new report counts as a submission worth a survey prompt, not an edit to an existing one.
+  function handleSaved(communityId: string, reportId: string, isNewReport?: boolean) {
+    setShowSurveyPrompt(!!isNewReport);
+    goToPreview(communityId, reportId);
+  }
+
   function goToEdit(communityId: string, reportId: string) {
     setEditTarget({ communityId, reportId });
     setActiveTab('new-report');
@@ -77,6 +85,7 @@ export default function App() {
       if (!confirmed) return;
     }
     if (tab === 'new-report') setEditTarget(undefined);
+    setShowSurveyPrompt(false);
     setActiveTab(tab);
   }
 
@@ -136,6 +145,8 @@ export default function App() {
         />
       )}
 
+      {activeTab === 'preview' && showSurveyPrompt && <SurveyPrompt onDismiss={() => setShowSurveyPrompt(false)} />}
+
       <main style={{ flex: 1, minHeight: 0 }}>
         {/* The Dashboard keeps the full list for lookups (so a selected community never disappears
             when a slicer changes) and uses the filtered list only for what it offers to pick from. */}
@@ -156,7 +167,7 @@ export default function App() {
           <VacancyReportEntry
             communities={communities}
             communitiesLoading={communitiesLoading}
-            onSaved={goToPreview}
+            onSaved={handleSaved}
             editReportId={editTarget?.reportId}
             editCommunityId={editTarget?.communityId}
             onDirtyChange={setNewReportDirty}

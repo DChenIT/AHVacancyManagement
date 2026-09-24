@@ -13,7 +13,8 @@ import {
 interface Props {
   communities: Community[];
   communitiesLoading: boolean;
-  onSaved: (communityId: string, reportId: string) => void;
+  /** `isNewReport` is true when a brand-new report was created (vs. saving edits to an existing one). */
+  onSaved: (communityId: string, reportId: string, isNewReport?: boolean) => void;
   /** When set, edits that existing report instead of starting a blank new one - see ReportPreview's "Edit This Report" button, only offered for a community's latest report. */
   editReportId?: string;
   editCommunityId?: string;
@@ -277,7 +278,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
         setNotes('');
         setNothingToReport(false);
         setHasUnsavedEdits(false);
-        onSaved(communityId, reportId);
+        onSaved(communityId, reportId, true);
       }
     } catch (e) {
       console.error('Save report failed', e);
