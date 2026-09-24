@@ -30,9 +30,27 @@ const inputStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = { color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, marginBottom: 4, display: 'block' };
 
+// Today as YYYY-MM-DD in the user's own time zone. (toISOString() is UTC, so in the evening it
+// would already say tomorrow.)
+function localToday(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Reports are due every Wednesday, so a report's "Week Of" is that week's Wednesday no matter which
+// day it's actually filled in on. Weeks run Monday-Sunday: filing Mon/Tue/Wed uses that Wednesday,
+// and filing late (Thu-Sun) still belongs to the Wednesday that just passed.
+function reportingWednesday(reportDate: string): { year: number; month: number; day: number } {
+  const [y, m, d] = reportDate.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const mondayIndex = (date.getUTCDay() + 6) % 7; // Mon=0 ... Sun=6
+  date.setUTCDate(date.getUTCDate() + (2 - mondayIndex));
+  return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() };
+}
+
 // Standardized report naming so titles don't vary staff to staff: "Community - Vacancy Report - Week Of M/D/YYYY"
 function formatReportTitle(communityName: string, reportDate: string): string {
-  const [year, month, day] = reportDate.split('-').map(Number);
+  const { year, month, day } = reportingWednesday(reportDate);
   return `${communityName} - Vacancy Report - Week Of ${month}/${day}/${year}`;
 }
 
@@ -111,7 +129,7 @@ function Field({ label, children, span, required }: { label: string; children: R
 export function VacancyReportEntry({ communities, communitiesLoading, onSaved, editReportId, editCommunityId, onDirtyChange, currentUser }: Props) {
   const isEditMode = !!editReportId;
   const [communityId, setCommunityId] = useState(editCommunityId ?? '');
-  const [reportDate, setReportDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [reportDate, setReportDate] = useState(localToday);
   const [rows, setRows] = useState<UnitRowDraft[]>([emptyUnitRow()]);
   const [notes, setNotes] = useState('');
   const [nothingToReport, setNothingToReport] = useState(false);
@@ -158,7 +176,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
   useEffect(() => {
     if (editReportId) return;
     setCommunityId(editCommunityId ?? '');
-    setReportDate(new Date().toISOString().split('T')[0]);
+    setReportDate(localToday());
     setRows([emptyUnitRow()]);
     setNotes('');
     setNothingToReport(false);
