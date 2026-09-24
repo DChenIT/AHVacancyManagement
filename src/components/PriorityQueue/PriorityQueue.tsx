@@ -23,15 +23,18 @@ function rateColor(rate?: number): string {
 }
 
 function FastTrackBadge({ detail }: { detail: string }) {
-  const isCorrections = detail === 'Corrections Requested';
+  const tone = detail === 'Denied'
+    ? { bg: 'var(--danger-bg)', fg: 'var(--danger)', icon: '⛔' }
+    : detail === 'Corrections Requested'
+      ? { bg: 'var(--warning-bg)', fg: 'var(--warning)', icon: '⚠' }
+      : { bg: 'var(--info-bg)', fg: 'var(--info)', icon: '📄' };
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
-      backgroundColor: isCorrections ? 'var(--warning-bg)' : 'var(--info-bg)',
-      color: isCorrections ? 'var(--warning)' : 'var(--info)',
+      backgroundColor: tone.bg, color: tone.fg,
       borderRadius: 12, padding: '3px 10px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
     }}>
-      <span aria-hidden="true">{isCorrections ? '⚠' : '📄'}</span>{detail}
+      <span aria-hidden="true">{tone.icon}</span>{detail}
     </span>
   );
 }
