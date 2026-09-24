@@ -288,6 +288,7 @@ AddDateColumn      $unitsTable "approvaldate"               "Approval Date"
 AddBooleanColumn   $unitsTable "approvedhopper"             "Approved Hopper"
 AddDateColumn      $unitsTable "staledate"                  "Stale Date"
 AddBooleanColumn   $unitsTable "fasttrackreviewed"          "Fast-Track Reviewed"
+AddChoiceColumn    $unitsTable "fasttrackreviewoutcome"     "Fast-Track Review Outcome" @("Approved","Corrections Requested","Denied")
 AddStringColumn    $unitsTable "fasttrackreviewedby"        "Fast-Track Reviewed By" 200 $false
 AddDateColumn      $unitsTable "fasttrackrevieweddate"      "Fast-Track Reviewed Date"
 AddMemoColumn      $unitsTable "nextstep"                   "Next Step"

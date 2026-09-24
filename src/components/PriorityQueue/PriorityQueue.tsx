@@ -3,7 +3,7 @@ import type { Community } from '../../hooks/useCommunities';
 import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { usePriorityQueue } from '../../hooks/usePriorityQueue';
 import { useAppSettings } from '../../hooks/useAppSettings';
-import { useFastTrackUnits } from '../../hooks/useFastTrackUnits';
+import { useFastTrackUnits, REVIEW_OUTCOMES, type ReviewOutcome } from '../../hooks/useFastTrackUnits';
 import { InfoScreen } from '../InfoScreen/InfoScreen';
 
 interface Props {
@@ -66,11 +66,11 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
       : `Couldn't ${action}: ${short}`;
   }
 
-  async function handleMarkReviewed(unitId: string) {
+  async function handleMarkReviewed(unitId: string, outcome: ReviewOutcome) {
     setReviewingId(unitId);
     setReviewError(null);
     try {
-      await markReviewed(unitId, currentUser?.displayName || 'Unknown');
+      await markReviewed(unitId, currentUser?.displayName || 'Unknown', outcome);
     } catch (e) {
       setReviewError(describeReviewError('mark this reviewed', e));
     } finally {
@@ -207,10 +207,10 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
 
           {fastTrackTab === 'active' && (
             <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
-              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 680 }}>
+              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 780 }}>
                 <thead>
                   <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                    {['Unit', 'Community', 'Applicant', 'Status Detail', 'Next Step', 'Reviewed'].map(h => (
+                    {['Unit', 'Community', 'Applicant', 'Status Detail', 'Next Step', 'Review Status'].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                     ))}
                   </tr>
@@ -232,14 +232,19 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
                         {u.nextStep || '—'}{u.nextStepDueDate ? ` (due ${u.nextStepDueDate})` : ''}
                       </td>
                       <td style={{ padding: '8px 10px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={false}
+                        <select
+                          value=""
                           disabled={reviewingId === u.unitId}
-                          onChange={() => handleMarkReviewed(u.unitId)}
-                          style={{ width: 16, height: 16, cursor: 'pointer' }}
-                          title="Mark reviewed - removes it from this list"
-                        />
+                          onChange={e => { if (e.target.value) handleMarkReviewed(u.unitId, e.target.value as ReviewOutcome); }}
+                          style={{
+                            backgroundColor: 'var(--bg-input, var(--bg-subtle))', color: 'var(--text-primary)', border: '1px solid var(--border)',
+                            borderRadius: 6, padding: '5px 8px', fontSize: 13.5, cursor: 'pointer',
+                          }}
+                          title="Choose the review outcome - moves it to the Reviewed tab"
+                        >
+                          <option value="">Select status…</option>
+                          {REVIEW_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
                       </td>
                     </tr>
                   ))}
@@ -256,7 +261,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
               <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 680 }}>
                 <thead>
                   <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                    {['Unit', 'Community', 'Applicant', 'Status Detail', 'Reviewed By', 'Reviewed Date', ''].map(h => (
+                    {['Unit', 'Community', 'Applicant', 'Status Detail', 'Review Status', 'Reviewed By', 'Reviewed Date', ''].map(h => (
                       <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                     ))}
                   </tr>
@@ -274,6 +279,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
                       <td style={{ padding: '8px 10px' }}>
                         <FastTrackBadge detail={u.statusDetail} />
                       </td>
+                      <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontSize: 14, fontWeight: 600 }}>{u.reviewOutcome || 'Reviewed'}</td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.reviewedBy || '—'}</td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.reviewedDate || '—'}</td>
                       <td style={{ padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
@@ -292,7 +298,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
                     </tr>
                   ))}
                   {reviewedUnits.length === 0 && (
-                    <tr><td colSpan={7} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>Nothing reviewed yet.</td></tr>
+                    <tr><td colSpan={8} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>Nothing reviewed yet.</td></tr>
                   )}
                 </tbody>
               </table>

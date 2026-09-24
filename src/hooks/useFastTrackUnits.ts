@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Cr1e9_vacancyreportsesService } from '../generated/services/Cr1e9_vacancyreportsesService';
 import { Cr1e9_unitupdatesesService } from '../generated/services/Cr1e9_unitupdatesesService';
+import { Cr1e9_unitupdatesescr1e9_fasttrackreviewoutcome as OUTCOME_ENUM } from '../generated/models/Cr1e9_unitupdatesesModel';
 import { STATUS_DETAIL_LABEL } from '../types';
 import type { Community } from './useCommunities';
 
@@ -9,6 +10,12 @@ import type { Community } from './useCommunities';
 // warrant a quick follow-up (chase the compliance reviewer, resolve the correction) rather than
 // being buried in a per-community report. Requested by the Affordable Housing Team.
 const FAST_TRACK_DETAILS = new Set(['Submitted to Compliance', 'Corrections Requested']);
+
+export const REVIEW_OUTCOMES = ['Approved', 'Corrections Requested', 'Denied'] as const;
+export type ReviewOutcome = typeof REVIEW_OUTCOMES[number];
+const OUTCOME_CODE = Object.fromEntries(
+  Object.entries(OUTCOME_ENUM).map(([code, label]) => [label, Number(code)]),
+) as Record<ReviewOutcome, number>;
 
 export interface FastTrackUnit {
   unitId: string;
@@ -24,6 +31,7 @@ export interface FastTrackUnit {
   reviewed: boolean;
   reviewedBy?: string;
   reviewedDate?: string;
+  reviewOutcome?: ReviewOutcome; // absent on units reviewed before outcomes existed
 }
 
 export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
@@ -66,7 +74,7 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
         select: [
           'cr1e9_unitupdatesid', '_cr1e9_vacancyreport_value', 'cr1e9_name', 'cr1e9_currentapplicantname',
           'cr1e9_currentstatusdetail', 'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_fasttrackreviewed',
-          'cr1e9_fasttrackreviewedby', 'cr1e9_fasttrackrevieweddate', 'cr1e9_approvedhopper',
+          'cr1e9_fasttrackreviewedby', 'cr1e9_fasttrackrevieweddate', 'cr1e9_fasttrackreviewoutcome', 'cr1e9_approvedhopper',
         ],
       });
       if (unitsResult.error) throw new Error(unitsResult.error.message ?? 'Failed to load units');
@@ -98,6 +106,7 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
           reviewed: !!u.cr1e9_fasttrackreviewed,
           reviewedBy: u.cr1e9_fasttrackreviewedby || undefined,
           reviewedDate: u.cr1e9_fasttrackrevieweddate ? u.cr1e9_fasttrackrevieweddate.split('T')[0] : undefined,
+          reviewOutcome: (OUTCOME_ENUM as Record<number, string>)[(u as any).cr1e9_fasttrackreviewoutcome] as ReviewOutcome | undefined,
         };
         (entry.reviewed ? reviewed : active).push(entry);
       }
@@ -117,9 +126,10 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const markReviewed = useCallback(async (unitId: string, reviewerName: string) => {
+  const markReviewed = useCallback(async (unitId: string, reviewerName: string, outcome: ReviewOutcome) => {
     const result = await Cr1e9_unitupdatesesService.update(unitId, {
       cr1e9_fasttrackreviewed: true,
+      cr1e9_fasttrackreviewoutcome: OUTCOME_CODE[outcome],
       cr1e9_fasttrackreviewedby: reviewerName,
       cr1e9_fasttrackrevieweddate: new Date().toISOString().split('T')[0],
     } as any);
@@ -135,6 +145,7 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
     // actually present in the PATCH body with a null value; an omitted key leaves it unchanged.
     const result = await Cr1e9_unitupdatesesService.update(unitId, {
       cr1e9_fasttrackreviewed: false,
+      cr1e9_fasttrackreviewoutcome: null,
       cr1e9_fasttrackreviewedby: null,
       cr1e9_fasttrackrevieweddate: null,
     } as any);
