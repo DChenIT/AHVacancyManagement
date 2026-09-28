@@ -27,7 +27,9 @@ function FastTrackBadge({ detail }: { detail: string }) {
     ? { bg: 'var(--danger-bg)', fg: 'var(--danger)', icon: '⛔' }
     : detail === 'Corrections Requested'
       ? { bg: 'var(--warning-bg)', fg: 'var(--warning)', icon: '⚠' }
-      : { bg: 'var(--info-bg)', fg: 'var(--info)', icon: '📄' };
+      : detail === 'Referral Pending'
+        ? { bg: 'var(--purple-bg)', fg: 'var(--purple)', icon: '🤝' }
+        : { bg: 'var(--info-bg)', fg: 'var(--info)', icon: '📄' };
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,

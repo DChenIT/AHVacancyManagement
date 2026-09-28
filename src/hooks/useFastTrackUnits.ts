@@ -9,7 +9,7 @@ import type { Community } from './useCommunities';
 // out separately from the community ranking table since these are expected to fill fastest and
 // warrant a quick follow-up (chase the compliance reviewer, resolve the correction) rather than
 // being buried in a per-community report. Requested by the Affordable Housing Team.
-const FAST_TRACK_DETAILS = new Set(['Submitted to Compliance', 'Corrections Requested']);
+const FAST_TRACK_DETAILS = new Set(['Submitted to Compliance', 'Corrections Requested', 'Referral Pending']);
 
 export const REVIEW_OUTCOMES = ['Approved', 'Corrections Requested', 'Denied'] as const;
 export type ReviewOutcome = typeof REVIEW_OUTCOMES[number];
@@ -117,9 +117,10 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
         };
         (entry.reviewed ? reviewed : active).push(entry);
       }
-      // Corrections Requested is blocking on the applicant/staff and needs active follow-up;
-      // Submitted to Compliance is just waiting on the reviewer - so corrections sort first.
-      const rank = (d: string) => (d === 'Corrections Requested' ? 0 : 1);
+      // Corrections Requested and Referral Pending are blocking on the applicant/staff/partner and
+      // need active follow-up; Submitted to Compliance is just waiting on the reviewer - so those
+      // two sort first.
+      const rank = (d: string) => (d === 'Corrections Requested' || d === 'Referral Pending' ? 0 : 1);
       active.sort((a, b) => rank(a.statusDetail) - rank(b.statusDetail));
       reviewed.sort((a, b) => (b.reviewedDate ?? '').localeCompare(a.reviewedDate ?? ''));
       setUnits(active);

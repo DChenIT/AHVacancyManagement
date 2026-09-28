@@ -69,7 +69,7 @@ export function InfoScreen() {
 
       <Section title="Fast-Track Approvals" icon="⚡">
         <p style={{ margin: 0 }}>
-          Units already in motion toward approval — Status Detail of <strong>Submitted to Compliance</strong> or <strong>Corrections Requested</strong> — are called out separately on the Priority Queue since they're expected to fill fastest and just need a quick follow-up. Corrections Requested sorts first since it's blocking on the applicant or staff; Submitted to Compliance is just waiting on the reviewer.
+          Units already in motion toward approval — Status Detail of <strong>Submitted to Compliance</strong>, <strong>Corrections Requested</strong>, or <strong>Referral Pending</strong> — are called out separately on the Priority Queue since they're expected to fill fastest and just need a quick follow-up. Corrections Requested and Referral Pending sort first since they're blocking on the applicant, staff, or partner agency; Submitted to Compliance is just waiting on the reviewer.
         </p>
       </Section>
     </div>

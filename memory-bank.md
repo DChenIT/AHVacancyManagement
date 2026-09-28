@@ -306,3 +306,10 @@ Team members' "Reviewed" checkbox silently did nothing: it writes to a unit row 
 - Changed the Dashboard's submitted/not-submitted check mark (and slicer) from a rolling 7-days-since-last-report window to a calendar reporting week: a community counts as submitted as long as its latest report date is on/after the most recent Monday.
 - Resets for every community at once at the start of Monday (local time), instead of 7 days after each community's own report.
 - `src/hooks/useReportCompleteness.ts` — `isUpToDate` now compares against `currentWeekStartIso()` instead of a rolling-window timestamp diff.
+
+## 2026-09-28 — Referral Pending status
+- Added **Referral Pending** as a Status Detail option on Unit Updates (value 100000021), to track units awaiting a partner-agency referral. Also backfilled the previously-live "Approved - Pending PHA Inspection" option into `setup-dataverse.ps1` (it existed in dev but the script had drifted).
+- Referral Pending is now part of the Priority Queue's Fast-Track callout (Active/Reviewed tabs), alongside Submitted to Compliance and Corrections Requested — sorts first (tied with Corrections Requested) since it's blocking on an outside party.
+- Badge color: purple/handshake icon, distinct from the blue "Submitted to Compliance" and amber "Corrections Requested" badges.
+- Updated the "How priority is calculated" info link text to mention it.
+- `src/hooks/useFastTrackUnits.ts`, `src/components/PriorityQueue/PriorityQueue.tsx`, `src/components/InfoScreen/InfoScreen.tsx`, `scripts/setup-dataverse.ps1`.
