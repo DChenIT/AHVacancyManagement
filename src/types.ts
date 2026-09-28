@@ -6,6 +6,7 @@ import {
   Cr1e9_unitupdatesescr1e9_turnreadiness,
   Cr1e9_unitupdatesescr1e9_programtype,
   Cr1e9_unitupdatesescr1e9_amipercent,
+  Cr1e9_unitupdatesescr1e9_referralpartner,
 } from './generated/models/Cr1e9_unitupdatesesModel';
 import {
   Cr1e9_vacancyreportsescr1e9_reportingperiod,
@@ -39,10 +40,17 @@ export const REPORT_STATUS_OPTIONS = optionsFromEnum(Cr1e9_vacancyreportsescr1e9
 export const TURN_STATUS_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_turnreadiness);
 export const PROGRAM_TYPE_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_programtype);
 export const AMI_PERCENT_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_amipercent);
+export const REFERRAL_PARTNER_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_referralpartner);
 
 // The AMI % dropdown only applies to (and only shows for) the LIHTC program type.
 export function isLihtc(programType: number | undefined): boolean {
   return PROGRAM_TYPE_OPTIONS.find(o => o.value === programType)?.label === 'LIHTC';
+}
+
+// The Referral Partner dropdown only applies to (and only shows for) the Referral Pending status detail.
+export function isReferralPending(statusDetail: number | undefined): boolean {
+  return statusDetail !== undefined
+    && Cr1e9_unitupdatesescr1e9_currentstatusdetail[statusDetail as keyof typeof Cr1e9_unitupdatesescr1e9_currentstatusdetail] === 'Referral Pending';
 }
 
 export const STATUS_CATEGORY_LABEL = Cr1e9_unitupdatesescr1e9_currentstatuscategory;
@@ -113,6 +121,8 @@ export interface UnitRowDraft {
   programType?: number;
   /** LIHTC AMI % choice value - only meaningful when programType is LIHTC. */
   amiPercent?: number;
+  /** Which partner agency the referral is pending from - only meaningful when currentStatusDetail is Referral Pending. */
+  referralPartner?: number;
   /** Marks this row as tracking an approved-applicant "hopper" rather than an open vacancy — mirrors cr1e9_approvedhopper. */
   isHopper: boolean;
   /** Only meaningful when isHopper is true — the date this hopper's file is considered stale and needs follow-up. */
@@ -139,6 +149,7 @@ export function emptyUnitRow(): UnitRowDraft {
     turnStatus: undefined,
     programType: undefined,
     amiPercent: undefined,
+    referralPartner: undefined,
     isHopper: false,
     staleDate: '',
   };

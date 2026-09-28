@@ -284,6 +284,7 @@ AddChoiceColumn    $unitsTable "currentstatuscategory"      "Current Status Cate
 AddDateColumn      $unitsTable "statuscategorydate"         "Status Category Date"
 AddChoiceColumn    $unitsTable "currentstatusdetail"        "Current Status Detail" @("Rented","Move-In Complete","Approved","Approved - Awaiting Lease Signing","Approved - Awaiting Move-In","Submitted to Compliance","Corrections Requested","Corrections Resubmitted","Pending Approval","Verification Pending","Interview Scheduled","Interview Complete","Eligibility in Progress","Applicant Unresponsive","Denied","Ineligible","Withdrawn","Waitlist","Unit Turn in Progress","No Applicant Assigned","Approved - Pending PHA Inspection","Referral Pending")
 AddDateColumn      $unitsTable "statusdetaildate"           "Status Detail Date"
+AddChoiceColumn    $unitsTable "referralpartner"            "Referral Partner" @("HA","OSH","Welcome Home","Brilliant Corners/Health Plan","Housing Link","Brilliant Corners","ALTSA","SCFHP")
 AddDateColumn      $unitsTable "approvaldate"               "Approval Date"
 AddBooleanColumn   $unitsTable "approvedhopper"             "Approved Hopper"
 AddDateColumn      $unitsTable "staledate"                  "Stale Date"

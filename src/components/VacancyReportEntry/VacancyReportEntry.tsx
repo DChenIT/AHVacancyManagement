@@ -7,6 +7,7 @@ import {
   VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, STATUS_DETAIL_OPTIONS, RISK_LEVEL_OPTIONS,
   REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, PROGRAM_TYPE_OPTIONS, emptyUnitRow, type UnitRowDraft,
   RISK_DAYS_MEDIUM, RISK_DAYS_HIGH, RISK_DAYS_CRITICAL, AMI_PERCENT_OPTIONS, isLihtc,
+  REFERRAL_PARTNER_OPTIONS, isReferralPending,
   isNextAvailableUnit, vacancyTypeOptionsFor,
 } from '../../types';
 
@@ -461,7 +462,10 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                 <input type="date" style={inputStyle} value={row.statusCategoryDate} onChange={e => updateRow(row.tempId, { statusCategoryDate: e.target.value })} />
               </Field>
               <Field label="Status Detail" required>
-                <select style={inputStyle} value={row.currentStatusDetail ?? ''} onChange={e => updateRow(row.tempId, { currentStatusDetail: e.target.value ? Number(e.target.value) : undefined })}>
+                <select style={inputStyle} value={row.currentStatusDetail ?? ''} onChange={e => {
+                  const currentStatusDetail = e.target.value ? Number(e.target.value) : undefined;
+                  updateRow(row.tempId, { currentStatusDetail, ...(isReferralPending(currentStatusDetail) ? {} : { referralPartner: undefined }) });
+                }}>
                   <option value="">—</option>
                   {STATUS_DETAIL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -469,6 +473,14 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
               <Field label="Status Detail Date">
                 <input type="date" style={inputStyle} value={row.statusDetailDate} onChange={e => updateRow(row.tempId, { statusDetailDate: e.target.value })} />
               </Field>
+              {isReferralPending(row.currentStatusDetail) && (
+                <Field label="Referral Partner" required>
+                  <select style={inputStyle} value={row.referralPartner ?? ''} onChange={e => updateRow(row.tempId, { referralPartner: e.target.value ? Number(e.target.value) : undefined })}>
+                    <option value="">—</option>
+                    {REFERRAL_PARTNER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </Field>
+              )}
               <Field label="Next Step Due">
                 <input type="date" style={inputStyle} value={row.nextStepDueDate} onChange={e => updateRow(row.tempId, { nextStepDueDate: e.target.value })} />
               </Field>

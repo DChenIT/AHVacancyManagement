@@ -22,7 +22,7 @@ function rateColor(rate?: number): string {
   return 'var(--success)';
 }
 
-function FastTrackBadge({ detail }: { detail: string }) {
+function FastTrackBadge({ detail, referralPartner }: { detail: string; referralPartner?: string }) {
   const tone = detail === 'Denied'
     ? { bg: 'var(--danger-bg)', fg: 'var(--danger)', icon: '⛔' }
     : detail === 'Corrections Requested'
@@ -36,7 +36,7 @@ function FastTrackBadge({ detail }: { detail: string }) {
       backgroundColor: tone.bg, color: tone.fg,
       borderRadius: 12, padding: '3px 10px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
     }}>
-      <span aria-hidden="true">{tone.icon}</span>{detail}
+      <span aria-hidden="true">{tone.icon}</span>{detail}{referralPartner ? ` — ${referralPartner}` : ''}
     </span>
   );
 }
@@ -231,7 +231,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.communityName}</td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.applicantName || '—'}</td>
                       <td style={{ padding: '8px 10px' }}>
-                        <FastTrackBadge detail={u.statusDetail} />
+                        <FastTrackBadge detail={u.statusDetail} referralPartner={u.referralPartner} />
                       </td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>
                         {u.nextStep || '—'}{u.nextStepDueDate ? ` (due ${u.nextStepDueDate})` : ''}
@@ -282,7 +282,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.communityName}</td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.applicantName || '—'}</td>
                       <td style={{ padding: '8px 10px' }}>
-                        <FastTrackBadge detail={u.statusDetail} />
+                        <FastTrackBadge detail={u.statusDetail} referralPartner={u.referralPartner} />
                       </td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontSize: 14, fontWeight: 600 }}>{u.reviewOutcome || 'Reviewed'}</td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.reviewedBy || '—'}</td>

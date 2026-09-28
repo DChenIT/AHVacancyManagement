@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Cr1e9_vacancyreportsesService } from '../generated/services/Cr1e9_vacancyreportsesService';
 import { Cr1e9_unitupdatesesService } from '../generated/services/Cr1e9_unitupdatesesService';
 import { Cr1e9_unitupdatesescr1e9_fasttrackreviewoutcome as OUTCOME_ENUM } from '../generated/models/Cr1e9_unitupdatesesModel';
-import { STATUS_DETAIL_LABEL } from '../types';
+import { STATUS_DETAIL_LABEL, REFERRAL_PARTNER_OPTIONS } from '../types';
 import type { Community } from './useCommunities';
 
 // Status details that mean a unit's application is already in motion toward approval - called
@@ -28,6 +28,7 @@ export interface FastTrackUnit {
   unitNumber: string;
   applicantName?: string;
   statusDetail: string;
+  referralPartner?: string;
   nextStep?: string;
   nextStepDueDate?: string;
   reportId: string;
@@ -77,7 +78,7 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
       const unitsResult = await Cr1e9_unitupdatesesService.getAll({
         select: [
           'cr1e9_unitupdatesid', '_cr1e9_vacancyreport_value', 'cr1e9_name', 'cr1e9_currentapplicantname',
-          'cr1e9_currentstatusdetail', 'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_fasttrackreviewed',
+          'cr1e9_currentstatusdetail', 'cr1e9_referralpartner', 'cr1e9_nextstep', 'cr1e9_nextstepduedate', 'cr1e9_fasttrackreviewed',
           'cr1e9_fasttrackreviewedby', 'cr1e9_fasttrackrevieweddate', 'cr1e9_fasttrackreviewoutcome', 'cr1e9_approvedhopper',
         ],
       });
@@ -106,6 +107,7 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
           unitNumber: u.cr1e9_name,
           applicantName: u.cr1e9_currentapplicantname || undefined,
           statusDetail: detailLabel,
+          referralPartner: REFERRAL_PARTNER_OPTIONS.find(o => o.value === (u as any).cr1e9_referralpartner)?.label,
           nextStep: u.cr1e9_nextstep || undefined,
           nextStepDueDate: u.cr1e9_nextstepduedate ? u.cr1e9_nextstepduedate.split('T')[0] : undefined,
           reportId: rid!,

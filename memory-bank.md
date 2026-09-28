@@ -313,3 +313,9 @@ Team members' "Reviewed" checkbox silently did nothing: it writes to a unit row 
 - Badge color: purple/handshake icon, distinct from the blue "Submitted to Compliance" and amber "Corrections Requested" badges.
 - Updated the "How priority is calculated" info link text to mention it.
 - `src/hooks/useFastTrackUnits.ts`, `src/components/PriorityQueue/PriorityQueue.tsx`, `src/components/InfoScreen/InfoScreen.tsx`, `scripts/setup-dataverse.ps1`.
+
+## 2026-09-28 — Referral Partner dropdown for Referral Pending
+- New column `cr1e9_referralpartner` (choice) on `cr1e9_unitupdates`: HA, OSH, Welcome Home, Brilliant Corners/Health Plan, Housing Link, Brilliant Corners, ALTSA, SCFHP.
+- New Report form: a "Referral Partner" dropdown appears right under Status Detail only when Status Detail is Referral Pending (same show/hide pattern as the LIHTC AMI % field), and clears itself if Status Detail changes away from Referral Pending.
+- Priority Queue's Fast-Track badge now shows the partner too, e.g. "Referral Pending — HA".
+- `src/types.ts` (REFERRAL_PARTNER_OPTIONS, isReferralPending), `src/hooks/useUnitUpdates.ts`, `src/hooks/useFastTrackUnits.ts`, `src/components/VacancyReportEntry/VacancyReportEntry.tsx`, `src/components/PriorityQueue/PriorityQueue.tsx`, `scripts/setup-dataverse.ps1`.
