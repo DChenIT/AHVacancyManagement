@@ -301,3 +301,8 @@ Team members' "Reviewed" checkbox silently did nothing: it writes to a unit row 
 - New column `cr1e9_fasttrackreviewoutcome` (choice, 100000000–100000002) on `cr1e9_unitupdates`; added to `setup-dataverse.ps1` and solution `AHCommunityPulse`.
 - Picking an option sets reviewed=true + reviewer/date + outcome; the row moves to the Reviewed tab, which now shows Review Status. Unmark clears the outcome. Units reviewed before this change show "Reviewed".
 - Choosing **Denied** in the Fast-Track dropdown also sets the unit's Status Detail to Denied (and Status Detail Date to today). Denied units stay on the Reviewed tab. Unmarking a denial restores Status Detail to Submitted to Compliance.
+
+## 2026-09-28 — Dashboard "submitted" indicator now resets Mondays
+- Changed the Dashboard's submitted/not-submitted check mark (and slicer) from a rolling 7-days-since-last-report window to a calendar reporting week: a community counts as submitted as long as its latest report date is on/after the most recent Monday.
+- Resets for every community at once at the start of Monday (local time), instead of 7 days after each community's own report.
+- `src/hooks/useReportCompleteness.ts` — `isUpToDate` now compares against `currentWeekStartIso()` instead of a rolling-window timestamp diff.
