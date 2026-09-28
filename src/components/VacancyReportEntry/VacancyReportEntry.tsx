@@ -470,9 +470,6 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                   {STATUS_DETAIL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </Field>
-              <Field label="Status Detail Date">
-                <input type="date" style={inputStyle} value={row.statusDetailDate} onChange={e => updateRow(row.tempId, { statusDetailDate: e.target.value })} />
-              </Field>
               {isReferralPending(row.currentStatusDetail) && (
                 <Field label="Referral Partner" required>
                   <select style={inputStyle} value={row.referralPartner ?? ''} onChange={e => updateRow(row.tempId, { referralPartner: e.target.value ? Number(e.target.value) : undefined })}>
@@ -481,6 +478,9 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                   </select>
                 </Field>
               )}
+              <Field label="Status Detail Date">
+                <input type="date" style={inputStyle} value={row.statusDetailDate} onChange={e => updateRow(row.tempId, { statusDetailDate: e.target.value })} />
+              </Field>
               <Field label="Next Step Due">
                 <input type="date" style={inputStyle} value={row.nextStepDueDate} onChange={e => updateRow(row.tempId, { nextStepDueDate: e.target.value })} />
               </Field>
