@@ -319,3 +319,9 @@ Team members' "Reviewed" checkbox silently did nothing: it writes to a unit row 
 - New Report form: a "Referral Partner" dropdown appears right under Status Detail only when Status Detail is Referral Pending (same show/hide pattern as the LIHTC AMI % field), and clears itself if Status Detail changes away from Referral Pending.
 - Priority Queue's Fast-Track badge now shows the partner too, e.g. "Referral Pending — HA".
 - `src/types.ts` (REFERRAL_PARTNER_OPTIONS, isReferralPending), `src/hooks/useUnitUpdates.ts`, `src/hooks/useFastTrackUnits.ts`, `src/components/VacancyReportEntry/VacancyReportEntry.tsx`, `src/components/PriorityQueue/PriorityQueue.tsx`, `scripts/setup-dataverse.ps1`.
+
+## 2026-10-06 — Applicant name / status must agree
+- Dashboard "Active Applicants" only counts units with an applicant name, so units with a Status Detail but no name were silently dropping off. New New-Report rules (`applicantNameRequired`, `statusCategoryConflictsWithApplicant` in `src/types.ts`; `findApplicantProblem` in `VacancyReportEntry.tsx`):
+  - Status Detail set to anything except No Applicant Assigned / Unit Turn in Progress / Referral Pending ⇒ Applicant name required (red asterisk + red border + hint, and Save is blocked with a message). Hopper rows exempt.
+  - Applicant name entered ⇒ Status Category can't be "No Applicant".
+- Status Detail was already required to enable Save.

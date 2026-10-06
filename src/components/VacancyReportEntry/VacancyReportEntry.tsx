@@ -7,7 +7,7 @@ import {
   VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, STATUS_DETAIL_OPTIONS, RISK_LEVEL_OPTIONS,
   REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, PROGRAM_TYPE_OPTIONS, emptyUnitRow, type UnitRowDraft,
   RISK_DAYS_MEDIUM, RISK_DAYS_HIGH, RISK_DAYS_CRITICAL, AMI_PERCENT_OPTIONS, isLihtc,
-  REFERRAL_PARTNER_OPTIONS, isReferralPending,
+  REFERRAL_PARTNER_OPTIONS, isReferralPending, applicantNameRequired, statusCategoryConflictsWithApplicant,
   isNextAvailableUnit, vacancyTypeOptionsFor,
 } from '../../types';
 
@@ -102,6 +102,21 @@ function findDateProblem(rows: UnitRowDraft[], reportDate: string): string | nul
       if (value && !isSaneDate(value)) {
         return `Unit ${row.unitNumber.trim() || i + 1}: "${field.label}" has an invalid date (${value}) - the year looks mistyped. Please correct it and save again. Nothing was saved.`;
       }
+    }
+  }
+  return null;
+}
+
+// A named applicant and the status have to agree, otherwise the unit silently drops off the
+// Dashboard's applicant count. Checked before anything is written.
+function findApplicantProblem(rows: UnitRowDraft[]): string | null {
+  for (const [i, row] of rows.entries()) {
+    const unit = row.unitNumber.trim() || String(i + 1);
+    if (applicantNameRequired(row) && !row.currentApplicantName.trim()) {
+      return `Unit ${unit}: a Status Detail is set, so the Applicant name is required. Nothing was saved.`;
+    }
+    if (statusCategoryConflictsWithApplicant(row)) {
+      return `Unit ${unit}: an Applicant is entered, so the Status Category can't be "No Applicant". Nothing was saved.`;
     }
   }
   return null;
@@ -226,6 +241,11 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
       const dateProblem = findDateProblem(nothingToReport ? [] : validRows, reportDate);
       if (dateProblem) {
         setSaveError(dateProblem);
+        return;
+      }
+      const applicantProblem = nothingToReport ? null : findApplicantProblem(validRows);
+      if (applicantProblem) {
+        setSaveError(applicantProblem);
         return;
       }
       const currentValidRows = nothingToReport ? [] : validRows.map(r => ({
@@ -407,8 +427,16 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                 <input type="date" style={inputStyle} value={row.expectedVacancyDate} onChange={e => updateRow(row.tempId, { expectedVacancyDate: e.target.value })} />
               </Field>
 
-              <Field label="Applicant">
-                <input style={inputStyle} value={row.currentApplicantName} onChange={e => updateRow(row.tempId, { currentApplicantName: e.target.value })} placeholder="Applicant name" />
+              <Field label="Applicant" required={applicantNameRequired(row)}>
+                <input
+                  style={{ ...inputStyle, ...(applicantNameRequired(row) && !row.currentApplicantName.trim() ? { borderColor: 'var(--danger)' } : {}) }}
+                  value={row.currentApplicantName}
+                  onChange={e => updateRow(row.tempId, { currentApplicantName: e.target.value })}
+                  placeholder="Applicant name"
+                />
+                {applicantNameRequired(row) && !row.currentApplicantName.trim() && (
+                  <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 3 }}>Required — this status means there's an applicant.</div>
+                )}
               </Field>
               <Field label="Program Type">
                 <select style={inputStyle} value={row.programType ?? ''} onChange={e => {
@@ -454,9 +482,16 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
               </Field>
 
               <Field label="Status Category" required>
-                <select style={inputStyle} value={row.currentStatusCategory} onChange={e => updateRow(row.tempId, { currentStatusCategory: Number(e.target.value) })}>
+                <select
+                  style={{ ...inputStyle, ...(statusCategoryConflictsWithApplicant(row) ? { borderColor: 'var(--danger)' } : {}) }}
+                  value={row.currentStatusCategory}
+                  onChange={e => updateRow(row.tempId, { currentStatusCategory: Number(e.target.value) })}
+                >
                   {STATUS_CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
+                {statusCategoryConflictsWithApplicant(row) && (
+                  <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 3 }}>An applicant is entered — pick the applicant's status.</div>
+                )}
               </Field>
               <Field label="Status Category Date">
                 <input type="date" style={inputStyle} value={row.statusCategoryDate} onChange={e => updateRow(row.tempId, { statusCategoryDate: e.target.value })} />

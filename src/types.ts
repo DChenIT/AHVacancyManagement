@@ -129,6 +129,24 @@ export interface UnitRowDraft {
   staleDate: string;
 }
 
+// Status Details that don't imply a named applicant exists yet. Everything else (Eligibility in
+// Progress, Submitted to Compliance, Verification Pending, ...) means there's a file on someone, and the
+// Dashboard's "Active Applicants" count only sees units whose applicant name is filled in.
+const NO_NAMED_APPLICANT_DETAILS = new Set(['No Applicant Assigned', 'Unit Turn in Progress', 'Referral Pending']);
+
+/** True when this row's status says an applicant is in process, so their name must be entered. Hopper rows are exempt - their file # identifies them. */
+export function applicantNameRequired(row: Pick<UnitRowDraft, 'currentStatusDetail' | 'isHopper'>): boolean {
+  if (row.isHopper || row.currentStatusDetail === undefined) return false;
+  const label = Cr1e9_unitupdatesescr1e9_currentstatusdetail[row.currentStatusDetail as keyof typeof Cr1e9_unitupdatesescr1e9_currentstatusdetail];
+  return !!label && !NO_NAMED_APPLICANT_DETAILS.has(label);
+}
+
+/** True when an applicant name is entered but the Status Category still says "No Applicant". */
+export function statusCategoryConflictsWithApplicant(row: Pick<UnitRowDraft, 'currentApplicantName' | 'currentStatusCategory' | 'isHopper'>): boolean {
+  if (row.isHopper || !row.currentApplicantName.trim()) return false;
+  return Cr1e9_unitupdatesescr1e9_currentstatuscategory[row.currentStatusCategory as keyof typeof Cr1e9_unitupdatesescr1e9_currentstatuscategory] === 'No Applicant';
+}
+
 export function emptyUnitRow(): UnitRowDraft {
   return {
     tempId: crypto.randomUUID(),
