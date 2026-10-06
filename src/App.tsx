@@ -31,8 +31,8 @@ export default function App() {
   const { currentUser } = useCurrentUser();
   const { isAdmin: userIsAdmin } = useIsAdmin(currentUser?.email);
 
-  // Slicers for the Dashboard only (RPS/RMS/Director/Compliance/Asset Manager + Submitted/Not
-  // submitted). They don't touch any other tab, so a filter set here can't silently trim a list elsewhere.
+  // Slicers shared by the Dashboard and Priority Queue (RPS/RMS/Director/Compliance/Asset Manager, plus
+  // Submitted/Not submitted on the Dashboard only). The other tabs aren't filtered, so a slicer can't silently trim them.
   const [filters, setFilters] = useState<GlobalFilters>(EMPTY_FILTERS);
   // The Dashboard can be viewed "as of" an earlier date to see a past week's reports and who had submitted.
   const today = localTodayIso();
@@ -50,7 +50,9 @@ export default function App() {
     if (filters.submission === 'all' || completenessLoading) return roleScoped;
     return roleScoped.filter(c => (filters.submission === 'submitted') === isUpToDate(c.id));
   }, [roleScoped, filters.submission, completenessLoading, isUpToDate]);
-  const showFilterBar = activeTab === 'dashboard';
+  // The Priority Queue gets the same people slicers (RPS/RMS/Director/Compliance/Asset Manager) but not the
+  // submission slicer or As of date - it has its own As of and ranks communities that have reports.
+  const showFilterBar = activeTab === 'dashboard' || activeTab === 'priority';
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -140,7 +142,8 @@ export default function App() {
         <GlobalFilterBar
           allCommunities={communities}
           roleScoped={roleScoped}
-          shownCount={filteredCommunities.length}
+          shownCount={activeTab === 'priority' ? roleScoped.length : filteredCommunities.length}
+          variant={activeTab === 'priority' ? 'priority' : 'dashboard'}
           isUpToDate={isUpToDate}
           completenessLoading={completenessLoading}
           filters={filters}
@@ -169,7 +172,7 @@ export default function App() {
           />
         )}
         {activeTab === 'priority' && (
-          <PriorityQueue communities={communities} communitiesLoading={communitiesLoading} onViewReport={goToPreview} currentUser={currentUser} />
+          <PriorityQueue communities={roleScoped} communitiesLoading={communitiesLoading} onViewReport={goToPreview} currentUser={currentUser} />
         )}
         {activeTab === 'new-report' && (
           <VacancyReportEntry

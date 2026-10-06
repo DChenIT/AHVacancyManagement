@@ -24,8 +24,8 @@ export function applyRoleFilters(communities: Community[], filters: GlobalFilter
   return communities.filter(c => ROLE_SLICERS.every(s => !filters[s.key] || s.field(c) === filters[s.key]));
 }
 
-function hasActiveFilters(f: GlobalFilters): boolean {
-  return f.submission !== 'all' || ROLE_SLICERS.some(s => !!f[s.key]);
+function hasActiveFilters(f: GlobalFilters, includeSubmission: boolean): boolean {
+  return (includeSubmission && f.submission !== 'all') || ROLE_SLICERS.some(s => !!f[s.key]);
 }
 
 function distinctNames(communities: Community[], field: (c: Community) => string | undefined): string[] {
@@ -50,6 +50,8 @@ interface Props {
   asOfDate: string;
   today: string;
   onAsOfChange: (date: string) => void;
+  /** 'dashboard' adds the Submitted / Not submitted slicer and the As of date; 'priority' is just the people slicers (the Priority Queue has its own As of). */
+  variant?: 'dashboard' | 'priority';
 }
 
 const selectStyle: React.CSSProperties = {
@@ -57,7 +59,8 @@ const selectStyle: React.CSSProperties = {
   borderRadius: 6, padding: '5px 8px', fontSize: 13, maxWidth: 190,
 };
 
-export function GlobalFilterBar({ allCommunities, roleScoped, shownCount, isUpToDate, completenessLoading, filters, onChange, asOfDate, today, onAsOfChange }: Props) {
+export function GlobalFilterBar({ allCommunities, roleScoped, shownCount, isUpToDate, completenessLoading, filters, onChange, asOfDate, today, onAsOfChange, variant = 'dashboard' }: Props) {
+  const isDashboard = variant === 'dashboard';
   const submittedCount = roleScoped.filter(c => isUpToDate(c.id)).length;
   const missingCount = roleScoped.length - submittedCount;
 
@@ -96,6 +99,7 @@ export function GlobalFilterBar({ allCommunities, roleScoped, shownCount, isUpTo
         </select>
       ))}
 
+      {isDashboard && (<>
       <span style={{ width: 1, alignSelf: 'stretch', backgroundColor: 'var(--border)', margin: '0 4px' }} aria-hidden="true" />
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} role="group" aria-label="Report submission status">
@@ -121,10 +125,11 @@ export function GlobalFilterBar({ allCommunities, roleScoped, shownCount, isUpTo
           style={{ background: 'none', border: '1px solid var(--accent)', borderRadius: 6, color: 'var(--accent)', padding: '4px 10px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
         >Back to today</button>
       )}
+      </>)}
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Showing {shownCount} of {allCommunities.length}</span>
-        {hasActiveFilters(filters) && (
+        {hasActiveFilters(filters, isDashboard) && (
           <button
             onClick={() => onChange(EMPTY_FILTERS)}
             style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0 }}
