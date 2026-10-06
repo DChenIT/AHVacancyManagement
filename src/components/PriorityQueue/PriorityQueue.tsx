@@ -92,7 +92,7 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
     setReviewingId(unitId);
     setReviewError(null);
     try {
-      await unmarkReviewed(unitId, wasDenied);
+      await unmarkReviewed(unitId, currentUser?.displayName || 'Unknown', wasDenied);
     } catch (e) {
       setReviewError(describeReviewError('unmark this', e));
     } finally {

@@ -4,6 +4,7 @@ import { useVacancyReports } from '../../hooks/useVacancyReports';
 import { useUnitUpdates, deleteUnitsForReport } from '../../hooks/useUnitUpdates';
 import { useUnitStreaks } from '../../hooks/useUnitStreaks';
 import { StatusBadge } from '../shared/StatusBadge';
+import { AuditTrailModal, formatDateTime } from './AuditTrailModal';
 import { STATUS_CATEGORY_LABEL, STATUS_CATEGORY_SORT_ORDER, REPORT_STATUS_OPTIONS, AGING_DAYS_THRESHOLD, AGING_STREAK_THRESHOLD } from '../../types';
 
 function daysBetween(from: string, to: string): number {
@@ -52,6 +53,7 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
   const [reportId, setReportId] = useState(initialReportId ?? '');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showAudit, setShowAudit] = useState(false);
 
   useEffect(() => { if (initialCommunityId) setCommunityId(initialCommunityId); }, [initialCommunityId]);
   useEffect(() => { if (initialReportId) setReportId(initialReportId); }, [initialReportId]);
@@ -144,6 +146,8 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
         <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>Select a community and a report to preview.</p>
       )}
 
+      {report && showAudit && <AuditTrailModal report={report} onClose={() => setShowAudit(false)} />}
+
       {report && (
         <>
           <div style={{
@@ -152,12 +156,18 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
               <div style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>Vacancy Update</div>
-              {isAdmin && (
-                <button className="no-print" onClick={handleDelete} disabled={deleting} style={{
-                  background: 'none', border: '1px solid var(--danger)', borderRadius: 6, color: 'var(--danger)',
-                  padding: '5px 10px', fontSize: 13, opacity: deleting ? 0.6 : 1, flexShrink: 0,
-                }}>{deleting ? 'Deleting…' : 'Delete Report'}</button>
-              )}
+              <div className="no-print" style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                <button onClick={() => setShowAudit(true)} style={{
+                  background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-secondary)',
+                  padding: '5px 10px', fontSize: 13, cursor: 'pointer',
+                }}>🕘 Audit trail</button>
+                {isAdmin && (
+                  <button onClick={handleDelete} disabled={deleting} style={{
+                    background: 'none', border: '1px solid var(--danger)', borderRadius: 6, color: 'var(--danger)',
+                    padding: '5px 10px', fontSize: 13, opacity: deleting ? 0.6 : 1,
+                  }}>{deleting ? 'Deleting…' : 'Delete Report'}</button>
+                )}
+              </div>
             </div>
             {deleteError && <div style={{ color: 'var(--danger)', fontSize: 13, marginTop: 4 }}>⚠ {deleteError}</div>}
             <div style={{ color: 'var(--text-primary)', fontSize: 22, fontWeight: 700, marginTop: 4 }}>
@@ -166,6 +176,9 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
             <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>
               {report.title} · {report.reportDate} · Status: {REPORT_STATUS_OPTIONS.find(o => o.value === report.reportStatus)?.label ?? '—'}
               {' · '}Submitted by: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{report.submittedBy ?? '—'}</strong>
+              {report.lastEditedBy && (
+                <>{' · '}Last edited by: <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{report.lastEditedBy}</strong> ({formatDateTime(report.lastEditedOn)})</>
+              )}
               {unitsLoading && <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>Refreshing…</span>}
             </div>
             {report.nothingToReport && (

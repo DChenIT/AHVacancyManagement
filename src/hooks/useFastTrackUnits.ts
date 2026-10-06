@@ -4,6 +4,7 @@ import { Cr1e9_unitupdatesesService } from '../generated/services/Cr1e9_unitupda
 import { Cr1e9_unitupdatesescr1e9_fasttrackreviewoutcome as OUTCOME_ENUM } from '../generated/models/Cr1e9_unitupdatesesModel';
 import { STATUS_DETAIL_LABEL, REFERRAL_PARTNER_OPTIONS } from '../types';
 import type { Community } from './useCommunities';
+import { logReportAudit } from './useReportAudit';
 
 // Status details that mean a unit's application is already in motion toward approval - called
 // out separately from the community ranking table since these are expected to fill fastest and
@@ -147,13 +148,18 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
       ...(outcome === 'Denied' ? { cr1e9_currentstatusdetail: DETAIL_CODE.Denied, cr1e9_statusdetaildate: today } : {}),
     } as any);
     if (result.error) throw new Error(result.error.message ?? 'Failed to mark reviewed');
+    const unit = units.find(u => u.unitId === unitId);
+    if (unit) {
+      await logReportAudit(unit.reportId, 'Reviewed', reviewerName,
+        `Unit ${unit.unitNumber} — marked ${outcome}${outcome === 'Denied' ? ' (Status Detail set to Denied)' : ''}`);
+    }
     await refresh();
-  }, [refresh]);
+  }, [refresh, units]);
 
   // Only meant to be called after the caller has confirmed reviewedBy matches the signed-in
   // user - this is a UI-level courtesy (same trust model as the rest of the app's name-based
   // checks like "Show only my communities"), not a Dataverse-enforced security boundary.
-  const unmarkReviewed = useCallback(async (unitId: string, wasDenied = false) => {
+  const unmarkReviewed = useCallback(async (unitId: string, reviewerName: string, wasDenied = false) => {
     // Explicit null (not undefined) - Dataverse only clears a field when the property is
     // actually present in the PATCH body with a null value; an omitted key leaves it unchanged.
     const result = await Cr1e9_unitupdatesesService.update(unitId, {
@@ -166,8 +172,13 @@ export function useFastTrackUnits(communities: Community[], asOfDate?: string) {
       ...(wasDenied ? { cr1e9_currentstatusdetail: DETAIL_CODE['Submitted to Compliance'], cr1e9_statusdetaildate: new Date().toISOString().split('T')[0] } : {}),
     } as any);
     if (result.error) throw new Error(result.error.message ?? 'Failed to unmark reviewed');
+    const unit = reviewedUnits.find(u => u.unitId === unitId);
+    if (unit) {
+      await logReportAudit(unit.reportId, 'Review undone', reviewerName,
+        `Unit ${unit.unitNumber} — review removed${wasDenied ? ' (Status Detail returned to Submitted to Compliance)' : ''}`);
+    }
     await refresh();
-  }, [refresh]);
+  }, [refresh, reviewedUnits]);
 
   return { units, reviewedUnits, loading, error, refresh, markReviewed, unmarkReviewed };
 }

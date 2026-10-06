@@ -131,6 +131,12 @@ Then run the second script, which creates the sixth table (a small settings tabl
 ```
 It automatically picks up the same publisher prefix — you don't need to tell it separately.
 
+Then run the third script, which adds the audit trail (the Report Audit Entries table plus Last Edited By / Last Edited On columns on Vacancy Reports):
+```powershell
+.\scripts\setup-report-audit.ps1 -OrgUrl "https://yourorg.crm.dynamics.com"
+```
+Skip all three scripts if you're importing the solution instead - it carries every table and column.
+
 ---
 
 ## Step 5 — Register the app
@@ -200,13 +206,16 @@ Beyond the obvious Read/Create/Write, the app also sets a lookup at creation tim
    | Table | Read | Create | Write | Delete | Append | Append To |
    |---|---|---|---|---|---|---|
    | Communities | Organization | | | | | Organization |
-   | Vacancy Reports | Organization | User | User | | User | User |
+   | Vacancy Reports | Organization | User | User | | User | Organization |
    | Unit Updates | Organization | User | Organization | User | User | |
    | App Settings | Organization | | | | | |
+   | Report Audit Entries | Organization | User | | | User | |
    | Applicant Update History | Organization | | | | | |
    | Report Configuration | Organization | | | | | |
 
    **Why Unit Updates Write is Organization:** ticking "Reviewed" on a Fast-Track item writes to a unit row that is usually owned by whoever entered that report, so User-level Write makes the checkbox fail for everyone but the original author. (Before the checkbox showed an error it just appeared to do nothing.) This does let any staff member change any unit row they can reach; Create and Delete stay User-level. If staff also need to *add or remove* units on someone else's report while editing it, they'd additionally need Append To on Vacancy Reports and Delete on Unit Updates at Organization - not needed for the review checkbox.
+
+   **Report Audit Entries** (the audit trail behind the Report Preview's "Audit trail" button): staff need **Read at Organization** so they can see everyone's entries, and **Create + Append at User** to log their own saves. Vacancy Reports' **Append To is Organization** for the same reason as Communities below - an audit entry is linked to a report, and a reviewer or admin often logs against a report someone else created. If these are missing, saving still works but no audit entry is written (the app doesn't fail the save over it), and the Audit trail button shows a permissions hint.
 
    Communities' **Append To** has to be Organization level (not User) even though everything else on this role is User-scoped — staff didn't create the Community rows (the CSV import / admin did), so a narrower level would block filing a report against almost every community.
 3. Save it.

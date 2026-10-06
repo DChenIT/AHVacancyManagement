@@ -3,6 +3,8 @@ import type { Community } from '../../hooks/useCommunities';
 import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { useVacancyReports } from '../../hooks/useVacancyReports';
 import { useUnitUpdates, createUnitRows, updateUnitRow, deleteUnit, toUnitRowDraft } from '../../hooks/useUnitUpdates';
+import { logReportAudit, actorName } from '../../hooks/useReportAudit';
+import { describeReportEdit, type ReportSnapshot } from '../../reportAuditDiff';
 import {
   VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, statusDetailOptionsFor, RISK_LEVEL_OPTIONS,
   REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, PROGRAM_TYPE_OPTIONS, emptyUnitRow, type UnitRowDraft,
@@ -162,6 +164,8 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
   const pendingSaveRef = useRef<PendingSave | null>(null);
   // Edit mode: rows created during a save that failed partway, so a retry updates them instead of creating them twice.
   const createdInEditRef = useRef<Map<string, string>>(new Map());
+  // Edit mode: the report as it was loaded, to work out what a save actually changed for the audit trail.
+  const originalSnapshotRef = useRef<ReportSnapshot | null>(null);
 
   const { createReport, updateReportFields, reports } = useVacancyReports(communityId || undefined);
   const { units: existingUnits, loading: existingUnitsLoading } = useUnitUpdates(editReportId);
@@ -183,6 +187,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     const drafts = existingUnits.map(toUnitRowDraft);
     setRows(drafts.length ? drafts : [emptyUnitRow()]);
     setOriginalUnitIds(existingUnits.map(u => u.id));
+    originalSnapshotRef.current = { rows: drafts, notes: editingReport.notes ?? '', nothingToReport: editingReport.nothingToReport };
     setLoadedEditReportId(editReportId);
     setHasUnsavedEdits(false);
     pendingSaveRef.current = null;
@@ -198,6 +203,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
     setNotes('');
     setNothingToReport(false);
     setOriginalUnitIds([]);
+    originalSnapshotRef.current = null;
     setLoadedEditReportId(undefined);
     setHasUnsavedEdits(false);
     pendingSaveRef.current = null;
@@ -265,7 +271,12 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
         for (const id of originalUnitIds) {
           if (!keptIds.has(id)) await deleteUnit(id);
         }
-        await updateReportFields(editReportId, { notes: notes.trim(), nothingToReport });
+        const actor = actorName(currentUser);
+        const changes = originalSnapshotRef.current
+          ? describeReportEdit(originalSnapshotRef.current, { rows: currentValidRows, notes, nothingToReport })
+          : [];
+        await updateReportFields(editReportId, { notes: notes.trim(), nothingToReport, lastEditedBy: changes.length ? actor ?? 'Unknown' : undefined });
+        if (changes.length) await logReportAudit(editReportId, 'Edited', actor, changes.join('\n'));
         createdInEditRef.current = new Map();
         setSaveSuccess(true);
         setHasUnsavedEdits(false);
@@ -278,7 +289,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
             communityId, title: generatedTitle, reportDate, reportingPeriod: WEEKLY_REPORTING_PERIOD,
             notes: notes.trim() || undefined, nothingToReport,
             // useCurrentUser falls back to the placeholder "Me" when the user lookup fails - not a real name to store.
-            submittedBy: currentUser && currentUser.displayName !== 'Me' ? currentUser.displayName : currentUser?.email || undefined,
+            submittedBy: actorName(currentUser),
           });
           pending = { reportId: newReportId, communityId, reportDate, savedTempIds: new Set<string>() };
           pendingSaveRef.current = pending;
@@ -293,6 +304,8 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
           pending.savedTempIds.add(row.tempId);
         }
         const reportId = pending.reportId;
+        await logReportAudit(reportId, 'Created', actorName(currentUser),
+          nothingToReport ? 'Nothing to Report' : `${currentValidRows.length} ${currentValidRows.length === 1 ? 'unit' : 'units'}: ${currentValidRows.map(r => r.unitNumber.trim()).join(', ')}`);
         pendingSaveRef.current = null;
         setSaveSuccess(true);
         setRows([emptyUnitRow()]);

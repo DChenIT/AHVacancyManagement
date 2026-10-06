@@ -333,3 +333,9 @@ Team members' "Reviewed" checkbox silently did nothing: it writes to a unit row 
 
 ## 2026-10-06 — Removed "Approved - Awaiting Lease Signing" from Status Detail
 - Hidden from the Status Detail dropdown via `RETIRED_STATUS_DETAILS` in `src/types.ts` (`statusDetailOptionsFor`), not deleted in Dataverse: a managed-solution import wouldn't remove the choice in the work tenant, and deleting would blank existing reports. A report already using it still shows it (and the user can switch it).
+
+## 2026-10-06 — Report audit trail
+- New table `cr1e9_reportaudit` (Summary/name, Action, Done By, Details memo, optional lookup `cr1e9_vacancyreport`; the timestamp is the row's own Created On) and new columns `cr1e9_lasteditedby` / `cr1e9_lasteditedon` on `cr1e9_vacancyreports`. Created by `scripts/setup-report-audit.ps1`; added to solution `AHCommunityPulse`; data source `reportauditentries` added to the code app.
+- Written by the app (`src/hooks/useReportAudit.ts`, `logReportAudit` never throws): **Created** on a new report save; **Edited** when an edit actually changes something (details = one line per unit with old → new values, from `src/reportAuditDiff.ts`), which also stamps Last Edited By/On on the report; **Reviewed** / **Review undone** from the Priority Queue's Fast-Track dropdown (`useFastTrackUnits.ts`).
+- Report Preview shows "Last edited by X (date, time)" once a report has been edited, and an **Audit trail** button (`AuditTrailModal.tsx`) listing every entry newest first. Reports from before this change have no Created row, so the modal shows the recorded submitter with a note that the time wasn't recorded.
+- Roles (work tenant, done by the user): Report Audit Entries Read=Organization, Create=User, Append=User; Vacancy Reports Append To=Organization. Documented in DEPLOYMENT_GUIDE Step 8. Without them saves still work but no audit row is written.

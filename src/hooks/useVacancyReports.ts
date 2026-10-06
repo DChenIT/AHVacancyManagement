@@ -12,6 +12,9 @@ export interface VacancyReport {
   nothingToReport: boolean;
   /** Who created the report - set once at creation and not changed by later edits. */
   submittedBy?: string;
+  /** Who last saved edits to the report, and when (ISO). Unset until the report is first edited after submission. */
+  lastEditedBy?: string;
+  lastEditedOn?: string;
 }
 
 function mapReport(raw: {
@@ -24,6 +27,8 @@ function mapReport(raw: {
   cr1e9_additionalnotes?: string;
   cr1e9_nothingtoreport?: boolean;
   cr1e9_submittedby?: string;
+  cr1e9_lasteditedby?: string;
+  cr1e9_lasteditedon?: string;
 }): VacancyReport {
   return {
     id: raw.cr1e9_vacancyreportsid,
@@ -35,13 +40,15 @@ function mapReport(raw: {
     notes: raw.cr1e9_additionalnotes || undefined,
     nothingToReport: raw.cr1e9_nothingtoreport ?? false,
     submittedBy: raw.cr1e9_submittedby || undefined,
+    lastEditedBy: raw.cr1e9_lasteditedby || undefined,
+    lastEditedOn: raw.cr1e9_lasteditedon || undefined,
   };
 }
 
 const REPORT_SELECT = [
   'cr1e9_vacancyreportsid', '_cr1e9_community_value', 'cr1e9_name', 'cr1e9_reportdate',
   'cr1e9_reportingperiod', 'cr1e9_reportstatus', 'cr1e9_additionalnotes', 'cr1e9_nothingtoreport',
-  'cr1e9_submittedby',
+  'cr1e9_submittedby', 'cr1e9_lasteditedby', 'cr1e9_lasteditedon',
 ];
 
 export function useVacancyReports(communityId?: string) {
@@ -107,10 +114,12 @@ export function useVacancyReports(communityId?: string) {
   // Only Notes and Nothing to Report are editable on an existing report - Community/Report
   // Date/Title are fixed once created (changing them would really mean "a different report"),
   // see VacancyReportEntry's edit mode.
-  const updateReportFields = useCallback(async (reportId: string, fields: { notes?: string; nothingToReport?: boolean }): Promise<void> => {
+  const updateReportFields = useCallback(async (reportId: string, fields: { notes?: string; nothingToReport?: boolean; lastEditedBy?: string }): Promise<void> => {
     const result = await Cr1e9_vacancyreportsesService.update(reportId, {
       cr1e9_additionalnotes: fields.notes || undefined,
       cr1e9_nothingtoreport: fields.nothingToReport,
+      // Stamped only when the caller says a real edit happened, so a no-change save doesn't look like an edit.
+      ...(fields.lastEditedBy ? { cr1e9_lasteditedby: fields.lastEditedBy, cr1e9_lasteditedon: new Date().toISOString() } : {}),
     } as any);
     if (result.error) throw new Error(result.error.message ?? 'Failed to update report');
   }, []);
