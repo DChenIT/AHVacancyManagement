@@ -330,3 +330,6 @@ Team members' "Reviewed" checkbox silently did nothing: it writes to a unit row 
 - Added an **As of** date picker (plus "Back to today") to the Dashboard filter bar. `asOfDate` state lives in `App.tsx`; default is today (local).
 - Drives (1) the Submitted / Not submitted slicer and counts - `useReportCompleteness(asOfDate)` now keeps every report date per community and counts a community as submitted if it has a report in the as-of date's Monday-Sunday week, on or before that date; (2) the Dashboard community snapshot - `HomeDashboard` uses the latest report on or before the as-of date for the KPIs and Recent Reports list, with a "Viewing history as of ..." note.
 - Priority Queue keeps its own separate As-of date picker.
+
+## 2026-10-06 — Removed "Approved - Awaiting Lease Signing" from Status Detail
+- Hidden from the Status Detail dropdown via `RETIRED_STATUS_DETAILS` in `src/types.ts` (`statusDetailOptionsFor`), not deleted in Dataverse: a managed-solution import wouldn't remove the choice in the work tenant, and deleting would blank existing reports. A report already using it still shows it (and the user can switch it).

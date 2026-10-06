@@ -4,7 +4,7 @@ import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { useVacancyReports } from '../../hooks/useVacancyReports';
 import { useUnitUpdates, createUnitRows, updateUnitRow, deleteUnit, toUnitRowDraft } from '../../hooks/useUnitUpdates';
 import {
-  VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, STATUS_DETAIL_OPTIONS, RISK_LEVEL_OPTIONS,
+  VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, statusDetailOptionsFor, RISK_LEVEL_OPTIONS,
   REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, PROGRAM_TYPE_OPTIONS, emptyUnitRow, type UnitRowDraft,
   RISK_DAYS_MEDIUM, RISK_DAYS_HIGH, RISK_DAYS_CRITICAL, AMI_PERCENT_OPTIONS, isLihtc,
   REFERRAL_PARTNER_OPTIONS, isReferralPending, applicantNameRequired, statusCategoryConflictsWithApplicant,
@@ -502,7 +502,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                   updateRow(row.tempId, { currentStatusDetail, ...(isReferralPending(currentStatusDetail) ? {} : { referralPartner: undefined }) });
                 }}>
                   <option value="">—</option>
-                  {STATUS_DETAIL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {statusDetailOptionsFor(row.currentStatusDetail).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </Field>
               {isReferralPending(row.currentStatusDetail) && (

@@ -32,8 +32,17 @@ export function vacancyTypeOptionsFor(isHopper: boolean): { value: number; label
 export const STATUS_CATEGORY_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_currentstatuscategory);
 // Alphabetized by label for the dropdown, per the Affordable Housing Team's request - the
 // underlying option values/order in Dataverse are untouched, this only affects display order.
-export const STATUS_DETAIL_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_currentstatusdetail)
+// Status Details no longer offered for new selections. They stay defined in Dataverse (removing a
+// choice there doesn't carry through a managed-solution import, and would blank out old reports),
+// so they're only hidden here - a report that already uses one still shows it.
+const RETIRED_STATUS_DETAILS = new Set(['Approved - Awaiting Lease Signing']);
+const ALL_STATUS_DETAIL_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_currentstatusdetail)
   .sort((a, b) => a.label.localeCompare(b.label));
+export const STATUS_DETAIL_OPTIONS = ALL_STATUS_DETAIL_OPTIONS.filter(o => !RETIRED_STATUS_DETAILS.has(o.label));
+/** The dropdown choices for a row: the current list, plus the row's own value if it's a retired one. */
+export function statusDetailOptionsFor(current: number | undefined): { value: number; label: string }[] {
+  return current === undefined ? STATUS_DETAIL_OPTIONS : ALL_STATUS_DETAIL_OPTIONS.filter(o => o.value === current || !RETIRED_STATUS_DETAILS.has(o.label));
+}
 export const RISK_LEVEL_OPTIONS = optionsFromEnum(Cr1e9_unitupdatesescr1e9_risklevel);
 export const REPORTING_PERIOD_OPTIONS = optionsFromEnum(Cr1e9_vacancyreportsescr1e9_reportingperiod);
 export const REPORT_STATUS_OPTIONS = optionsFromEnum(Cr1e9_vacancyreportsescr1e9_reportstatus);
