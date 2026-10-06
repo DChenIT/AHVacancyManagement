@@ -14,6 +14,9 @@ interface Props {
   communitiesLoading: boolean;
   onViewReport: (communityId: string, reportId: string) => void;
   currentUser: CurrentUser | null;
+  /** The Dashboard shows each community as of this date (YYYY-MM-DD); `today` means the latest. */
+  asOfDate: string;
+  today: string;
 }
 
 function Tile({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
@@ -37,7 +40,7 @@ function personMatchesUser(name: string | undefined, email: string | undefined, 
   return false;
 }
 
-export function HomeDashboard({ communities, communityOptions, isUpToDate, communitiesLoading, onViewReport, currentUser }: Props) {
+export function HomeDashboard({ communities, communityOptions, isUpToDate, communitiesLoading, onViewReport, currentUser, asOfDate, today }: Props) {
   const [communityId, setCommunityId] = useState<string>('');
   const [search, setSearch] = useState('');
   const [showMyCommunities, setShowMyCommunities] = useState(false);
@@ -81,7 +84,10 @@ export function HomeDashboard({ communities, communityOptions, isUpToDate, commu
     return [...list].sort((a, b) => a.name.localeCompare(b.name));
   }, [visible, selected]);
 
-  const { reports, loading: reportsLoading } = useVacancyReports(communityId || undefined);
+  const { reports: allReports, loading: reportsLoading } = useVacancyReports(communityId || undefined);
+  // Newest first, so with an earlier as-of date the first remaining report is the one that was latest then.
+  const reports = useMemo(() => allReports.filter(r => r.reportDate <= asOfDate), [allReports, asOfDate]);
+  const isHistory = asOfDate !== today;
   const latestReport = reports[0];
   const { units, loading: unitsLoading } = useUnitUpdates(latestReport?.id);
 
@@ -195,13 +201,13 @@ export function HomeDashboard({ communities, communityOptions, isUpToDate, commu
             </div>
 
             {!latestReport && !reportsLoading && (
-              <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>No vacancy reports yet for {selected?.name}. Create one from the New Report tab.</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>{isHistory ? `No vacancy report for ${selected?.name} on or before ${asOfDate}.` : `No vacancy reports yet for ${selected?.name}. Create one from the New Report tab.`}</p>
             )}
 
             {latestReport && (
               <>
                 <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 12 }}>
-                  Showing KPIs from the most recent report: <strong style={{ color: 'var(--text-primary)' }}>{latestReport.title}</strong> ({latestReport.reportDate})
+                  {isHistory ? `Viewing history as of ${asOfDate} — KPIs from the latest report on or before then:` : 'Showing KPIs from the most recent report:'} <strong style={{ color: 'var(--text-primary)' }}>{latestReport.title}</strong> ({latestReport.reportDate})
                   {unitsLoading && <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>Refreshing…</span>}
                 </div>
 

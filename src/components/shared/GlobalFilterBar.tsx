@@ -46,6 +46,10 @@ interface Props {
   completenessLoading: boolean;
   filters: GlobalFilters;
   onChange: (filters: GlobalFilters) => void;
+  /** YYYY-MM-DD the Dashboard is viewed as of, and today's date (the latest it can be set to). */
+  asOfDate: string;
+  today: string;
+  onAsOfChange: (date: string) => void;
 }
 
 const selectStyle: React.CSSProperties = {
@@ -53,7 +57,7 @@ const selectStyle: React.CSSProperties = {
   borderRadius: 6, padding: '5px 8px', fontSize: 13, maxWidth: 190,
 };
 
-export function GlobalFilterBar({ allCommunities, roleScoped, shownCount, isUpToDate, completenessLoading, filters, onChange }: Props) {
+export function GlobalFilterBar({ allCommunities, roleScoped, shownCount, isUpToDate, completenessLoading, filters, onChange, asOfDate, today, onAsOfChange }: Props) {
   const submittedCount = roleScoped.filter(c => isUpToDate(c.id)).length;
   const missingCount = roleScoped.length - submittedCount;
 
@@ -99,6 +103,24 @@ export function GlobalFilterBar({ allCommunities, roleScoped, shownCount, isUpTo
         {segment('submitted', '✅ Submitted', submittedCount, 'ok')}
         {segment('missing', '⚠️ Not submitted', missingCount, 'warn')}
       </div>
+
+      <span style={{ width: 1, alignSelf: 'stretch', backgroundColor: 'var(--border)', margin: '0 4px' }} aria-hidden="true" />
+
+      <label htmlFor="dashboard-as-of" style={{ color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600 }}>As of</label>
+      <input
+        id="dashboard-as-of"
+        type="date"
+        value={asOfDate}
+        max={today}
+        onChange={e => onAsOfChange(e.target.value || today)}
+        style={{ ...selectStyle, maxWidth: 'none', ...(asOfDate !== today ? { borderColor: 'var(--accent)' } : {}) }}
+      />
+      {asOfDate !== today && (
+        <button
+          onClick={() => onAsOfChange(today)}
+          style={{ background: 'none', border: '1px solid var(--accent)', borderRadius: 6, color: 'var(--accent)', padding: '4px 10px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        >Back to today</button>
+      )}
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>Showing {shownCount} of {allCommunities.length}</span>

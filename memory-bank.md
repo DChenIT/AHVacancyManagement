@@ -325,3 +325,8 @@ Team members' "Reviewed" checkbox silently did nothing: it writes to a unit row 
   - Status Detail set to anything except No Applicant Assigned / Unit Turn in Progress / Referral Pending ⇒ Applicant name required (red asterisk + red border + hint, and Save is blocked with a message). Hopper rows exempt.
   - Applicant name entered ⇒ Status Category can't be "No Applicant".
 - Status Detail was already required to enable Save.
+
+## 2026-10-06 — Dashboard "As of" date
+- Added an **As of** date picker (plus "Back to today") to the Dashboard filter bar. `asOfDate` state lives in `App.tsx`; default is today (local).
+- Drives (1) the Submitted / Not submitted slicer and counts - `useReportCompleteness(asOfDate)` now keeps every report date per community and counts a community as submitted if it has a report in the as-of date's Monday-Sunday week, on or before that date; (2) the Dashboard community snapshot - `HomeDashboard` uses the latest report on or before the as-of date for the KPIs and Recent Reports list, with a "Viewing history as of ..." note.
+- Priority Queue keeps its own separate As-of date picker.

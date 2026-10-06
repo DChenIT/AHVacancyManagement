@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useCommunities } from './hooks/useCommunities';
 import { useCurrentUser } from './hooks/useCurrentUser';
 import { useIsAdmin } from './hooks/useIsAdmin';
-import { useReportCompleteness } from './hooks/useReportCompleteness';
+import { useReportCompleteness, localTodayIso } from './hooks/useReportCompleteness';
 import { Navigation, type Tab } from './components/shared/Navigation';
 import { GlobalFilterBar, EMPTY_FILTERS, applyRoleFilters, type GlobalFilters } from './components/shared/GlobalFilterBar';
 import { SurveyPrompt } from './components/shared/SurveyPrompt';
@@ -34,7 +34,10 @@ export default function App() {
   // Slicers for the Dashboard only (RPS/RMS/Director/Compliance/Asset Manager + Submitted/Not
   // submitted). They don't touch any other tab, so a filter set here can't silently trim a list elsewhere.
   const [filters, setFilters] = useState<GlobalFilters>(EMPTY_FILTERS);
-  const { isUpToDate, loading: completenessLoading, refresh: refreshCompleteness } = useReportCompleteness();
+  // The Dashboard can be viewed "as of" an earlier date to see a past week's reports and who had submitted.
+  const today = localTodayIso();
+  const [asOfDate, setAsOfDate] = useState(today);
+  const { isUpToDate, loading: completenessLoading, refresh: refreshCompleteness } = useReportCompleteness(asOfDate);
 
   // The hook loads once on its own; re-check each time the Dashboard is opened so a report saved
   // or deleted elsewhere is reflected in the Submitted/Not submitted slicer.
@@ -142,6 +145,9 @@ export default function App() {
           completenessLoading={completenessLoading}
           filters={filters}
           onChange={setFilters}
+          asOfDate={asOfDate}
+          today={today}
+          onAsOfChange={setAsOfDate}
         />
       )}
 
@@ -158,6 +164,8 @@ export default function App() {
             communitiesLoading={communitiesLoading}
             onViewReport={goToPreview}
             currentUser={currentUser}
+            asOfDate={asOfDate}
+            today={today}
           />
         )}
         {activeTab === 'priority' && (
