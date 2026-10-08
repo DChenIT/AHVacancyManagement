@@ -156,6 +156,28 @@ export function statusCategoryConflictsWithApplicant(row: Pick<UnitRowDraft, 'cu
   return Cr1e9_unitupdatesescr1e9_currentstatuscategory[row.currentStatusCategory as keyof typeof Cr1e9_unitupdatesescr1e9_currentstatuscategory] === 'No Applicant';
 }
 
+type DateKey = 'actualVacancyDate' | 'ntvDate' | 'expectedVacancyDate' | 'expectedMoveInDate' | 'nextStepDueDate' | 'statusCategoryDate' | 'statusDetailDate' | 'staleDate';
+
+/**
+ * The date fields a unit row has to fill in before the report can be saved. Everything that applies to the
+ * row is required; the rest are left alone because they can't apply (an NTV unit isn't vacant yet, so it
+ * has no Vacant Since; a vacant unit has no NTV date). Forcing every date on every row would just get
+ * made-up dates entered to get past the form.
+ */
+export function requiredDateFields(row: Pick<UnitRowDraft, 'vacancyType' | 'isHopper' | 'currentStatusDetail' | 'nextStep'>): DateKey[] {
+  const required: DateKey[] = ['statusCategoryDate', 'statusDetailDate'];
+  if (row.isHopper) return [...required, 'staleDate'];
+  const type = Cr1e9_unitupdatesescr1e9_vacancytype[row.vacancyType as keyof typeof Cr1e9_unitupdatesescr1e9_vacancytype];
+  if (type === 'Vacant') required.push('actualVacancyDate');
+  if (type === 'NTV') required.push('ntvDate');
+  if (type === 'NTV' || type === 'Transfer' || type === 'Eviction') required.push('expectedVacancyDate');
+  const detail = row.currentStatusDetail === undefined ? undefined
+    : Cr1e9_unitupdatesescr1e9_currentstatusdetail[row.currentStatusDetail as keyof typeof Cr1e9_unitupdatesescr1e9_currentstatusdetail];
+  if (detail?.startsWith('Approved')) required.push('expectedMoveInDate');
+  if (row.nextStep.trim()) required.push('nextStepDueDate');
+  return required;
+}
+
 export function emptyUnitRow(): UnitRowDraft {
   return {
     tempId: crypto.randomUUID(),

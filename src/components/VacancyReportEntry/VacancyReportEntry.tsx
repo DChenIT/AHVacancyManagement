@@ -9,7 +9,7 @@ import {
   VACANCY_TYPE_OPTIONS, STATUS_CATEGORY_OPTIONS, statusDetailOptionsFor, RISK_LEVEL_OPTIONS,
   REPORTING_PERIOD_OPTIONS, TURN_STATUS_OPTIONS, PROGRAM_TYPE_OPTIONS, emptyUnitRow, type UnitRowDraft,
   RISK_DAYS_MEDIUM, RISK_DAYS_HIGH, RISK_DAYS_CRITICAL, AMI_PERCENT_OPTIONS, isLihtc,
-  REFERRAL_PARTNER_OPTIONS, isReferralPending, applicantNameRequired, statusCategoryConflictsWithApplicant,
+  REFERRAL_PARTNER_OPTIONS, isReferralPending, requiredDateFields, applicantNameRequired, statusCategoryConflictsWithApplicant,
   isNextAvailableUnit, vacancyTypeOptionsFor,
 } from '../../types';
 
@@ -88,6 +88,8 @@ const ROW_DATE_FIELDS: { key: keyof UnitRowDraft; label: string }[] = [
   { key: 'staleDate', label: 'Stale Date' },
 ];
 
+const DATE_FIELD_LABEL = Object.fromEntries(ROW_DATE_FIELDS.map(f => [f.key, f.label])) as Record<string, string>;
+
 function isSaneDate(value: string): boolean {
   const m = /^(\d{4,6})-(\d{2})-(\d{2})$/.exec(value);
   if (!m) return false;
@@ -109,11 +111,15 @@ function findDateProblem(rows: UnitRowDraft[], reportDate: string): string | nul
   return null;
 }
 
-// A named applicant and the status have to agree, otherwise the unit silently drops off the
-// Dashboard's applicant count. Checked before anything is written.
-function findApplicantProblem(rows: UnitRowDraft[]): string | null {
+// Required dates, and a named applicant that has to agree with the status (otherwise the unit silently drops off the
+// Dashboard applicant count). Checked before anything is written.
+function findRequiredProblem(rows: UnitRowDraft[]): string | null {
   for (const [i, row] of rows.entries()) {
     const unit = row.unitNumber.trim() || String(i + 1);
+    const missingDates = requiredDateFields(row).filter(key => !(row[key] as string));
+    if (missingDates.length) {
+      return `Unit ${unit}: please enter ${missingDates.map(k => `"${DATE_FIELD_LABEL[k]}"`).join(', ')} before saving. Nothing was saved.`;
+    }
     if (applicantNameRequired(row) && !row.currentApplicantName.trim()) {
       return `Unit ${unit}: a Status Detail is set, so the Applicant name is required. Nothing was saved.`;
     }
@@ -142,6 +148,18 @@ function Field({ label, children, span, required }: { label: string; children: R
       <label style={labelStyle}>{label}{required && <RequiredMark />}</label>
       {children}
     </div>
+  );
+}
+
+// A unit-row date input. Marked required (and outlined red while empty) when requiredDateFields says this
+// row has to have it, so the team can see up front which dates a report needs before it will save.
+function RowDateField({ row, field, label, onChange }: { row: UnitRowDraft; field: keyof UnitRowDraft; label: string; onChange: (value: string) => void }) {
+  const required = (requiredDateFields(row) as string[]).includes(field);
+  const value = row[field] as string;
+  return (
+    <Field label={label} required={required}>
+      <input type="date" style={{ ...inputStyle, ...(required && !value ? { borderColor: 'var(--danger)' } : {}) }} value={value} onChange={e => onChange(e.target.value)} />
+    </Field>
   );
 }
 
@@ -249,7 +267,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
         setSaveError(dateProblem);
         return;
       }
-      const applicantProblem = nothingToReport ? null : findApplicantProblem(validRows);
+      const applicantProblem = nothingToReport ? null : findRequiredProblem(validRows);
       if (applicantProblem) {
         setSaveError(applicantProblem);
         return;
@@ -430,15 +448,9 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                   {vacancyTypeOptionsFor(row.isHopper).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </Field>
-              <Field label="Vacant Since">
-                <input type="date" style={inputStyle} value={row.actualVacancyDate} onChange={e => updateRow(row.tempId, { actualVacancyDate: e.target.value })} />
-              </Field>
-              <Field label="NTV Date">
-                <input type="date" style={inputStyle} value={row.ntvDate} onChange={e => updateRow(row.tempId, { ntvDate: e.target.value })} />
-              </Field>
-              <Field label="Expected Move-Out">
-                <input type="date" style={inputStyle} value={row.expectedVacancyDate} onChange={e => updateRow(row.tempId, { expectedVacancyDate: e.target.value })} />
-              </Field>
+              <RowDateField row={row} field="actualVacancyDate" label="Vacant Since" onChange={v => updateRow(row.tempId, { actualVacancyDate: v })} />
+              <RowDateField row={row} field="ntvDate" label="NTV Date" onChange={v => updateRow(row.tempId, { ntvDate: v })} />
+              <RowDateField row={row} field="expectedVacancyDate" label="Expected Move-Out" onChange={v => updateRow(row.tempId, { expectedVacancyDate: v })} />
 
               <Field label="Applicant" required={applicantNameRequired(row)}>
                 <input
@@ -468,13 +480,9 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                   </select>
                 </Field>
               )}
-              <Field label="Expected Move-In">
-                <input type="date" style={inputStyle} value={row.expectedMoveInDate} onChange={e => updateRow(row.tempId, { expectedMoveInDate: e.target.value })} />
-              </Field>
+              <RowDateField row={row} field="expectedMoveInDate" label="Expected Move-In" onChange={v => updateRow(row.tempId, { expectedMoveInDate: v })} />
               {row.isHopper && (
-                <Field label="Stale Date">
-                  <input type="date" style={inputStyle} value={row.staleDate} onChange={e => updateRow(row.tempId, { staleDate: e.target.value })} />
-                </Field>
+                <RowDateField row={row} field="staleDate" label="Stale Date" onChange={v => updateRow(row.tempId, { staleDate: v })} />
               )}
               <Field label="Risk (auto)">
                 {(() => {
@@ -506,9 +514,7 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                   <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 3 }}>An applicant is entered — pick the applicant's status.</div>
                 )}
               </Field>
-              <Field label="Status Category Date">
-                <input type="date" style={inputStyle} value={row.statusCategoryDate} onChange={e => updateRow(row.tempId, { statusCategoryDate: e.target.value })} />
-              </Field>
+              <RowDateField row={row} field="statusCategoryDate" label="Status Category Date" onChange={v => updateRow(row.tempId, { statusCategoryDate: v })} />
               <Field label="Status Detail" required>
                 <select style={inputStyle} value={row.currentStatusDetail ?? ''} onChange={e => {
                   const currentStatusDetail = e.target.value ? Number(e.target.value) : undefined;
@@ -526,12 +532,8 @@ export function VacancyReportEntry({ communities, communitiesLoading, onSaved, e
                   </select>
                 </Field>
               )}
-              <Field label="Status Detail Date">
-                <input type="date" style={inputStyle} value={row.statusDetailDate} onChange={e => updateRow(row.tempId, { statusDetailDate: e.target.value })} />
-              </Field>
-              <Field label="Next Step Due">
-                <input type="date" style={inputStyle} value={row.nextStepDueDate} onChange={e => updateRow(row.tempId, { nextStepDueDate: e.target.value })} />
-              </Field>
+              <RowDateField row={row} field="statusDetailDate" label="Status Detail Date" onChange={v => updateRow(row.tempId, { statusDetailDate: v })} />
+              <RowDateField row={row} field="nextStepDueDate" label="Next Step Due" onChange={v => updateRow(row.tempId, { nextStepDueDate: v })} />
 
               <Field label="Next Step" span>
                 <input style={inputStyle} value={row.nextStep} onChange={e => updateRow(row.tempId, { nextStep: e.target.value })} placeholder="Next step" />

@@ -343,3 +343,8 @@ Team members' "Reviewed" checkbox silently did nothing: it writes to a unit row 
 ## 2026-10-06 — Slicers on the Priority Queue tab too
 - The RPS / RMS / Director / Compliance / Asset Manager slicers now also show on the Priority Queue (shared filter state with the Dashboard, so a choice carries between the two tabs). `GlobalFilterBar` has a `variant`: 'dashboard' (adds Submitted/Not submitted + As of) or 'priority' (people slicers only; the Priority Queue keeps its own As of date).
 - `App.tsx` passes the role-filtered list (`roleScoped`) to `PriorityQueue`, so the ranking and Fast-Track list both follow the slicers. The Submitted/Not submitted slicer is deliberately not applied there.
+
+## 2026-10-08 — Required dates on unit rows
+- A report can't be saved until every date that applies to each unit row is filled in (`requiredDateFields` in `src/types.ts`, enforced by `findRequiredProblem` in `VacancyReportEntry.tsx`, shown as red asterisk + red border via `RowDateField`).
+- Always: Status Category Date, Status Detail Date. Vacant type: Vacant Since. NTV: NTV Date. NTV/Transfer/Eviction: Expected Move-Out. Status Detail starting "Approved": Expected Move-In. Next Step entered: Next Step Due. Hopper rows: Stale Date (plus the two status dates).
+- Deliberately not "every date on every row" - dates that can't apply (NTV date on a vacant unit, Vacant Since on an NTV unit) would just get junk values entered. Nothing-to-report reports are exempt. Older reports missing these dates must be completed when edited.
