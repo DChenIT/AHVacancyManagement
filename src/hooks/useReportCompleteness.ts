@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { getAllPages } from './getAllPages';
 import { Cr1e9_vacancyreportsesService } from '../generated/services/Cr1e9_vacancyreportsesService';
 
 function isoFromLocal(d: Date): string {
@@ -35,7 +36,7 @@ export function useReportCompleteness(asOfDate: string = localTodayIso()) {
 
   const refresh = useCallback(async () => {
     try {
-      const result = await Cr1e9_vacancyreportsesService.getAll({
+      const result = await getAllPages(opts => Cr1e9_vacancyreportsesService.getAll(opts), {
         select: ['_cr1e9_community_value', 'cr1e9_reportdate'],
         orderBy: ['cr1e9_reportdate desc'],
       });

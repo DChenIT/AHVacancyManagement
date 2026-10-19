@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react';
 import type { Community } from '../../hooks/useCommunities';
-import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { usePriorityQueue } from '../../hooks/usePriorityQueue';
 import { useAppSettings } from '../../hooks/useAppSettings';
-import { useFastTrackUnits, REVIEW_OUTCOMES, type ReviewOutcome } from '../../hooks/useFastTrackUnits';
+import type { FastTrackUnit } from '../../hooks/useFastTrackUnits';
 import { InfoScreen } from '../InfoScreen/InfoScreen';
 
 interface Props {
   communities: Community[];
   communitiesLoading: boolean;
   onViewReport: (communityId: string, reportId: string) => void;
-  currentUser: CurrentUser | null;
+  /** Fast-Track approvals (perpetual, across all weekly reports) - only summarized here; the full lists live on the Compliance tab. */
+  fastTrack: { openUnits: FastTrackUnit[]; reviewedCount: number; loading: boolean; error: string | null };
+  onOpenCompliance: () => void;
 }
 
 type SortMode = 'rate' | 'age' | 'aging';
@@ -22,83 +23,24 @@ function rateColor(rate?: number): string {
   return 'var(--success)';
 }
 
-function FastTrackBadge({ detail, referralPartner }: { detail: string; referralPartner?: string }) {
-  const tone = detail === 'Denied'
-    ? { bg: 'var(--danger-bg)', fg: 'var(--danger)', icon: '⛔' }
-    : detail === 'Corrections Requested'
-      ? { bg: 'var(--warning-bg)', fg: 'var(--warning)', icon: '⚠' }
-      : detail === 'Referral Pending'
-        ? { bg: 'var(--purple-bg)', fg: 'var(--purple)', icon: '🤝' }
-        : { bg: 'var(--info-bg)', fg: 'var(--info)', icon: '📄' };
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      backgroundColor: tone.bg, color: tone.fg,
-      borderRadius: 12, padding: '3px 10px', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap',
-    }}>
-      <span aria-hidden="true">{tone.icon}</span>{detail}{referralPartner ? ` — ${referralPartner}` : ''}
-    </span>
-  );
-}
-
 function todayIso(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-export function PriorityQueue({ communities, communitiesLoading, onViewReport, currentUser }: Props) {
+// "3 Corrections Requested, 2 Submitted to Compliance" - open cases by Status Detail, most numerous first.
+function fastTrackBreakdown(units: FastTrackUnit[]): string {
+  const counts = new Map<string, number>();
+  for (const u of units) counts.set(u.statusDetail, (counts.get(u.statusDetail) ?? 0) + 1);
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([detail, n]) => `${n} ${detail}`).join(', ');
+}
+
+export function PriorityQueue({ communities, communitiesLoading, onViewReport, fastTrack, onOpenCompliance }: Props) {
   const [asOfDate, setAsOfDate] = useState(todayIso);
   const today = todayIso();
   const isToday = asOfDate === today;
 
   const { entries, communitiesWithoutReport, loading, error } = usePriorityQueue(communities, asOfDate);
   const { portfolioVacancyGoal } = useAppSettings();
-  const {
-    units: fastTrackUnits, reviewedUnits, loading: fastTrackLoading, error: fastTrackError, markReviewed, unmarkReviewed,
-  } = useFastTrackUnits(communities, asOfDate);
-  const [reviewingId, setReviewingId] = useState<string | null>(null);
-  const [fastTrackTab, setFastTrackTab] = useState<'active' | 'reviewed'>('active');
-
-  // A failed save used to be silent (the checkbox just did nothing), which made a permissions
-  // problem look like a broken button - surface it instead.
-  const [reviewError, setReviewError] = useState<string | null>(null);
-  function describeReviewError(action: string, e: unknown): string {
-    console.error(`${action} failed`, e);
-    const raw = e instanceof Error ? e.message : String(e);
-    const permission = /privilege|prv[A-Z]|forbidden|403/i.test(raw);
-    const short = raw.length > 200 ? `${raw.slice(0, 200)}…` : raw;
-    return permission
-      ? `Couldn't ${action}: you don't have permission to update this unit. Ask an admin to check your security role.`
-      : `Couldn't ${action}: ${short}`;
-  }
-
-  async function handleMarkReviewed(unitId: string, outcome: ReviewOutcome) {
-    setReviewingId(unitId);
-    setReviewError(null);
-    try {
-      await markReviewed(unitId, currentUser?.displayName || 'Unknown', outcome);
-    } catch (e) {
-      setReviewError(describeReviewError('mark this reviewed', e));
-    } finally {
-      setReviewingId(null);
-    }
-  }
-
-  function canUnmark(reviewedBy: string | undefined): boolean {
-    if (!reviewedBy || !currentUser?.displayName) return false;
-    return reviewedBy.trim().toLowerCase() === currentUser.displayName.trim().toLowerCase();
-  }
-
-  async function handleUnmarkReviewed(unitId: string, wasDenied: boolean) {
-    setReviewingId(unitId);
-    setReviewError(null);
-    try {
-      await unmarkReviewed(unitId, currentUser?.displayName || 'Unknown', wasDenied);
-    } catch (e) {
-      setReviewError(describeReviewError('unmark this', e));
-    } finally {
-      setReviewingId(null);
-    }
-  }
   const [sortMode, setSortMode] = useState<SortMode>('rate');
   const [showInfo, setShowInfo] = useState(false);
 
@@ -170,145 +112,25 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, c
         )}
       </div>
 
-      {!fastTrackLoading && !fastTrackError && (fastTrackUnits.length > 0 || reviewedUnits.length > 0) && (
+      {!fastTrack.loading && !fastTrack.error && (fastTrack.openUnits.length > 0 || fastTrack.reviewedCount > 0) && (
         <div style={{
           backgroundColor: 'var(--bg-surface)', border: '1px solid var(--warning)', borderRadius: 10,
-          padding: '14px 18px', marginBottom: 20,
+          padding: '12px 18px', marginBottom: 20, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span aria-hidden="true">⚡</span>
-            <span style={{ color: 'var(--text-primary)', fontSize: 15, fontWeight: 700 }}>Fast-Track Approvals</span>
-          </div>
-          {reviewError && (
-            <div role="alert" style={{
-              backgroundColor: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 6,
-              padding: '8px 12px', fontSize: 13, fontWeight: 600, margin: '6px 0 10px',
-            }}>⚠ {reviewError}</div>
-          )}
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 0, marginBottom: 10 }}>
-            Units already submitted to compliance or awaiting corrections — these are expected to fill fastest, so they're called out first.
-          </p>
-
-          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-            <button
-              onClick={() => setFastTrackTab('active')}
-              style={{
-                background: fastTrackTab === 'active' ? 'var(--bg-subtle)' : 'none',
-                border: fastTrackTab === 'active' ? '1px solid var(--accent)' : '1px solid var(--border)',
-                color: fastTrackTab === 'active' ? 'var(--accent)' : 'var(--text-secondary)',
-                borderRadius: 6, padding: '5px 12px', fontSize: 13, fontWeight: fastTrackTab === 'active' ? 600 : 400,
-              }}
-            >Active ({fastTrackUnits.length})</button>
-            <button
-              onClick={() => setFastTrackTab('reviewed')}
-              style={{
-                background: fastTrackTab === 'reviewed' ? 'var(--bg-subtle)' : 'none',
-                border: fastTrackTab === 'reviewed' ? '1px solid var(--accent)' : '1px solid var(--border)',
-                color: fastTrackTab === 'reviewed' ? 'var(--accent)' : 'var(--text-secondary)',
-                borderRadius: 6, padding: '5px 12px', fontSize: 13, fontWeight: fastTrackTab === 'reviewed' ? 600 : 400,
-              }}
-            >Reviewed ({reviewedUnits.length})</button>
-          </div>
-
-          {fastTrackTab === 'active' && (
-            <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
-              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 780 }}>
-                <thead>
-                  <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                    {['Unit', 'Community', 'Applicant', 'Status Detail', 'Next Step', 'Review Status'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {fastTrackUnits.map((u, i) => (
-                    <tr
-                      key={`${u.reportId}-${u.unitNumber}-${i}`}
-                      onClick={() => onViewReport(u.communityId, u.reportId)}
-                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                    >
-                      <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontSize: 14 }}>{u.unitNumber}</td>
-                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.communityName}</td>
-                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.applicantName || '—'}</td>
-                      <td style={{ padding: '8px 10px' }}>
-                        <FastTrackBadge detail={u.statusDetail} referralPartner={u.referralPartner} />
-                      </td>
-                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>
-                        {u.nextStep || '—'}{u.nextStepDueDate ? ` (due ${u.nextStepDueDate})` : ''}
-                      </td>
-                      <td style={{ padding: '8px 10px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                        <select
-                          value=""
-                          disabled={reviewingId === u.unitId}
-                          onChange={e => { if (e.target.value) handleMarkReviewed(u.unitId, e.target.value as ReviewOutcome); }}
-                          style={{
-                            backgroundColor: 'var(--bg-input, var(--bg-subtle))', color: 'var(--text-primary)', border: '1px solid var(--border)',
-                            borderRadius: 6, padding: '5px 8px', fontSize: 13.5, cursor: 'pointer',
-                          }}
-                          title="Choose the review outcome - moves it to the Reviewed tab"
-                        >
-                          <option value="">Select status…</option>
-                          {REVIEW_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                  {fastTrackUnits.length === 0 && (
-                    <tr><td colSpan={6} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>Nothing active — everything's been reviewed.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {fastTrackTab === 'reviewed' && (
-            <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
-              <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 680 }}>
-                <thead>
-                  <tr style={{ backgroundColor: 'var(--bg-subtle)' }}>
-                    {['Unit', 'Community', 'Applicant', 'Status Detail', 'Review Status', 'Reviewed By', 'Reviewed Date', ''].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {reviewedUnits.map((u, i) => (
-                    <tr
-                      key={`${u.reportId}-${u.unitNumber}-${i}`}
-                      onClick={() => onViewReport(u.communityId, u.reportId)}
-                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                    >
-                      <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontSize: 14 }}>{u.unitNumber}</td>
-                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.communityName}</td>
-                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.applicantName || '—'}</td>
-                      <td style={{ padding: '8px 10px' }}>
-                        <FastTrackBadge detail={u.statusDetail} referralPartner={u.referralPartner} />
-                      </td>
-                      <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontSize: 14, fontWeight: 600 }}>{u.reviewOutcome || 'Reviewed'}</td>
-                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.reviewedBy || '—'}</td>
-                      <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.reviewedDate || '—'}</td>
-                      <td style={{ padding: '8px 10px' }} onClick={e => e.stopPropagation()}>
-                        {canUnmark(u.reviewedBy) && (
-                          <button
-                            onClick={() => handleUnmarkReviewed(u.unitId, u.reviewOutcome === 'Denied')}
-                            disabled={reviewingId === u.unitId}
-                            title="Only the person who reviewed this can unmark it"
-                            style={{
-                              background: 'none', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-secondary)',
-                              padding: '4px 10px', fontSize: 12.5, cursor: 'pointer', opacity: reviewingId === u.unitId ? 0.6 : 1,
-                            }}
-                          >{reviewingId === u.unitId ? '…' : 'Unmark'}</button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {reviewedUnits.length === 0 && (
-                    <tr><td colSpan={8} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>Nothing reviewed yet.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <span aria-hidden="true">⚡</span>
+          <span style={{ color: 'var(--text-primary)', fontSize: 15, fontWeight: 700 }}>Fast-Track Approvals</span>
+          <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+            <strong style={{ color: 'var(--text-primary)' }}>{fastTrack.openUnits.length}</strong> open
+            {fastTrack.openUnits.length > 0 && <> ({fastTrackBreakdown(fastTrack.openUnits)})</>}
+            {' · '}<strong style={{ color: 'var(--text-primary)' }}>{fastTrack.reviewedCount}</strong> reviewed
+          </span>
+          <button
+            onClick={onOpenCompliance}
+            style={{
+              marginLeft: 'auto', background: 'none', border: '1px solid var(--accent)', borderRadius: 6, color: 'var(--accent)',
+              padding: '6px 14px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+            }}
+          >Open Compliance tab →</button>
         </div>
       )}
 

@@ -8,6 +8,8 @@ import { GlobalFilterBar, EMPTY_FILTERS, applyRoleFilters, type GlobalFilters } 
 import { SurveyPrompt } from './components/shared/SurveyPrompt';
 import { HomeDashboard } from './components/HomeDashboard/HomeDashboard';
 import { PriorityQueue } from './components/PriorityQueue/PriorityQueue';
+import { ComplianceScreen } from './components/ComplianceScreen/ComplianceScreen';
+import { useFastTrackUnits } from './hooks/useFastTrackUnits';
 import { VacancyReportEntry } from './components/VacancyReportEntry/VacancyReportEntry';
 import { ReportPreview } from './components/ReportPreview/ReportPreview';
 import { AdminScreen } from './components/AdminScreen/AdminScreen';
@@ -52,7 +54,15 @@ export default function App() {
   }, [roleScoped, filters.submission, completenessLoading, isUpToDate]);
   // The Priority Queue gets the same people slicers (RPS/RMS/Director/Compliance/Asset Manager) but not the
   // submission slicer or As of date - it has its own As of and ranks communities that have reports.
-  const showFilterBar = activeTab === 'dashboard' || activeTab === 'priority';
+  const showFilterBar = activeTab === 'dashboard' || activeTab === 'priority' || activeTab === 'compliance';
+
+  // Fast-Track approvals are portfolio-wide and perpetual (every weekly report), so they're loaded once here for
+  // both the Priority Queue summary and the Compliance tab - and only once someone opens one of those tabs.
+  const needsFastTrack = activeTab === 'priority' || activeTab === 'compliance';
+  const fastTrack = useFastTrackUnits(communities, needsFastTrack);
+  const roleScopedIds = useMemo(() => new Set(roleScoped.map(c => c.id)), [roleScoped]);
+  const fastTrackOpen = useMemo(() => fastTrack.units.filter(u => roleScopedIds.has(u.communityId)), [fastTrack.units, roleScopedIds]);
+  const fastTrackReviewed = useMemo(() => fastTrack.reviewedUnits.filter(u => roleScopedIds.has(u.communityId)), [fastTrack.reviewedUnits, roleScopedIds]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -142,8 +152,8 @@ export default function App() {
         <GlobalFilterBar
           allCommunities={communities}
           roleScoped={roleScoped}
-          shownCount={activeTab === 'priority' ? roleScoped.length : filteredCommunities.length}
-          variant={activeTab === 'priority' ? 'priority' : 'dashboard'}
+          shownCount={activeTab === 'dashboard' ? filteredCommunities.length : roleScoped.length}
+          variant={activeTab === 'dashboard' ? 'dashboard' : 'priority'}
           isUpToDate={isUpToDate}
           completenessLoading={completenessLoading}
           filters={filters}
@@ -172,7 +182,25 @@ export default function App() {
           />
         )}
         {activeTab === 'priority' && (
-          <PriorityQueue communities={roleScoped} communitiesLoading={communitiesLoading} onViewReport={goToPreview} currentUser={currentUser} />
+          <PriorityQueue
+            communities={roleScoped}
+            communitiesLoading={communitiesLoading}
+            onViewReport={goToPreview}
+            fastTrack={{ openUnits: fastTrackOpen, reviewedCount: fastTrackReviewed.length, loading: fastTrack.loading, error: fastTrack.error }}
+            onOpenCompliance={() => handleTabChange('compliance')}
+          />
+        )}
+        {activeTab === 'compliance' && (
+          <ComplianceScreen
+            openUnits={fastTrackOpen}
+            reviewedUnits={fastTrackReviewed}
+            loading={fastTrack.loading}
+            error={fastTrack.error}
+            markReviewed={fastTrack.markReviewed}
+            unmarkReviewed={fastTrack.unmarkReviewed}
+            onViewReport={goToPreview}
+            currentUser={currentUser}
+          />
         )}
         {activeTab === 'new-report' && (
           <VacancyReportEntry

@@ -1,4 +1,4 @@
-export type Tab = 'dashboard' | 'priority' | 'new-report' | 'preview' | 'training' | 'admin';
+export type Tab = 'dashboard' | 'priority' | 'compliance' | 'new-report' | 'preview' | 'training' | 'admin';
 
 interface Props {
   active: Tab;
@@ -10,6 +10,7 @@ export function Navigation({ active, onChange, showAdmin }: Props) {
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'priority', label: 'Priority Queue', icon: '🎯' },
+    { id: 'compliance', label: 'Compliance', icon: '✅' },
     { id: 'new-report', label: 'New Report', icon: '📝' },
     { id: 'preview', label: 'Report Preview', icon: '📋' },
     { id: 'training', label: 'Training', icon: '🎓' },

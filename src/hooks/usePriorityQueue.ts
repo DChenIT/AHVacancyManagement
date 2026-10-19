@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { getAllPages } from './getAllPages';
 import { Cr1e9_vacancyreportsesService } from '../generated/services/Cr1e9_vacancyreportsesService';
 import { Cr1e9_unitupdatesesService } from '../generated/services/Cr1e9_unitupdatesesService';
 import { STATUS_CATEGORY_LABEL, AGING_DAYS_THRESHOLD, AGING_STREAK_THRESHOLD } from '../types';
@@ -42,7 +43,7 @@ export function usePriorityQueue(communities: Community[], asOfDate?: string) {
     setLoading(true);
     setError(null);
     try {
-      const reportsResult = await Cr1e9_vacancyreportsesService.getAll({
+      const reportsResult = await getAllPages(opts => Cr1e9_vacancyreportsesService.getAll(opts), {
         select: ['cr1e9_vacancyreportsid', '_cr1e9_community_value', 'cr1e9_name', 'cr1e9_reportdate'],
         orderBy: ['cr1e9_reportdate desc'],
       });
@@ -84,7 +85,7 @@ export function usePriorityQueue(communities: Community[], asOfDate?: string) {
         reportsByCommunity.set(cid, list);
       }
 
-      const unitsResult = await Cr1e9_unitupdatesesService.getAll({
+      const unitsResult = await getAllPages(opts => Cr1e9_unitupdatesesService.getAll(opts), {
         select: ['_cr1e9_vacancyreport_value', 'cr1e9_name', 'cr1e9_currentstatuscategory', 'cr1e9_actualvacancydate', 'cr1e9_approvedhopper'],
       });
       if (unitsResult.error) throw new Error(unitsResult.error.message ?? 'Failed to load units');
