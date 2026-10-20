@@ -90,6 +90,11 @@ export const AGING_DAYS_THRESHOLD = 30;
 // the signal still works without depending on staff remembering to fill in a date field.
 export const AGING_STREAK_THRESHOLD = 3;
 
+// A community whose latest report is more than this many days old counts as "not current" in the Priority
+// Queue's coverage note. Its last report is still carried into the totals (blanking it would hide real
+// vacancies), but the portfolio total isn't presented as complete while any community is behind.
+export const STALE_REPORT_DAYS = 14;
+
 // Risk (auto) thresholds on the New Report form - days vacant (Vacant Since to Report Date) at
 // or above each cutoff bumps the unit to that tier. Below RISK_DAYS_MEDIUM is Low.
 export const RISK_DAYS_MEDIUM = 15;

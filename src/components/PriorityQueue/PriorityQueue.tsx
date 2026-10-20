@@ -4,6 +4,7 @@ import { usePriorityQueue } from '../../hooks/usePriorityQueue';
 import { useAppSettings } from '../../hooks/useAppSettings';
 import type { FastTrackUnit } from '../../hooks/useFastTrackUnits';
 import { InfoScreen } from '../InfoScreen/InfoScreen';
+import { STALE_REPORT_DAYS } from '../../types';
 
 interface Props {
   communities: Community[];
@@ -12,6 +13,8 @@ interface Props {
   /** Fast-Track approvals (perpetual, across all weekly reports) - only summarized here; the full lists live on the Compliance tab. */
   fastTrack: { openUnits: FastTrackUnit[]; reviewedCount: number; loading: boolean; error: string | null };
   onOpenCompliance: () => void;
+  /** True when the people slicers are narrowing the list, so the totals cover only part of the portfolio. */
+  isFiltered: boolean;
 }
 
 type SortMode = 'rate' | 'age' | 'aging';
@@ -34,7 +37,7 @@ function fastTrackBreakdown(units: FastTrackUnit[]): string {
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([detail, n]) => `${n} ${detail}`).join(', ');
 }
 
-export function PriorityQueue({ communities, communitiesLoading, onViewReport, fastTrack, onOpenCompliance }: Props) {
+export function PriorityQueue({ communities, communitiesLoading, onViewReport, fastTrack, onOpenCompliance, isFiltered }: Props) {
   const [asOfDate, setAsOfDate] = useState(todayIso);
   const today = todayIso();
   const isToday = asOfDate === today;
@@ -58,6 +61,16 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, f
 
   const totalOpenVacancies = useMemo(() => entries.reduce((sum, e) => sum + e.openVacancyCount, 0), [entries]);
   const goalGap = totalOpenVacancies - portfolioVacancyGoal;
+
+  // Coverage: the totals above only count communities that have a report, and carry each one's latest report
+  // forward however old it is. So say how much of the portfolio they actually rest on, and don't call the goal
+  // met ("Under goal") while communities are missing or behind - that would read as success when it's a gap in reporting.
+  const staleCount = useMemo(() => entries.filter(e => {
+    const days = (new Date(asOfDate).getTime() - new Date(e.reportDate).getTime()) / (1000 * 60 * 60 * 24);
+    return days > STALE_REPORT_DAYS;
+  }).length, [entries, asOfDate]);
+  const coverageComplete = communitiesWithoutReport === 0 && staleCount === 0;
+  const totalLabel = isFiltered ? 'Open vacancies (filtered)' : coverageComplete ? 'Open vacancies (portfolio)' : 'Open vacancies reported so far';
 
   const sortButtonStyle = (active: boolean): React.CSSProperties => ({
     background: active ? 'var(--bg-subtle)' : 'none',
@@ -140,18 +153,35 @@ export function PriorityQueue({ communities, communitiesLoading, onViewReport, f
           backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 18px',
         }}>
           <div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>Open vacancies (portfolio)</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>{totalLabel}</div>
             <div style={{ color: 'var(--text-primary)', fontSize: 24, fontWeight: 700, marginTop: 2 }}>{totalOpenVacancies}</div>
           </div>
-          <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: 12 }}>
-            <div style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>Quarterly goal</div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: 24, fontWeight: 700, marginTop: 2 }}>{portfolioVacancyGoal}</div>
-          </div>
-          <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: 12 }}>
-            <div style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>{goalGap > 0 ? 'Over goal' : 'Under goal'}</div>
-            <div style={{ color: goalGap > 0 ? 'var(--danger)' : 'var(--success)', fontSize: 24, fontWeight: 700, marginTop: 2 }}>
-              {goalGap > 0 ? `+${goalGap}` : goalGap}
+          {!isFiltered && (<>
+            <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: 12 }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>Quarterly goal</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: 24, fontWeight: 700, marginTop: 2 }}>{portfolioVacancyGoal}</div>
             </div>
+            <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: 12 }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, textTransform: 'uppercase' }}>
+                {!coverageComplete ? 'Goal gap so far' : goalGap > 0 ? 'Over goal' : 'Under goal'}
+              </div>
+              <div style={{
+                color: !coverageComplete ? 'var(--text-secondary)' : goalGap > 0 ? 'var(--danger)' : 'var(--success)',
+                fontSize: 24, fontWeight: 700, marginTop: 2,
+              }}>
+                {goalGap > 0 ? `+${goalGap}` : goalGap}
+              </div>
+            </div>
+          </>)}
+          <div style={{ flexBasis: '100%', fontSize: 13, color: coverageComplete && !isFiltered ? 'var(--text-muted)' : 'var(--warning)', fontWeight: coverageComplete ? 400 : 600 }}>
+            {isFiltered
+              ? `Filtered to ${communities.length} communities - the goal compares to the whole portfolio, so clear the slicers to see it.`
+              : coverageComplete
+                ? `All ${entries.length} communities have a current report.`
+                : `⚠ Based on ${entries.length} of ${communities.length} communities`
+                  + (communitiesWithoutReport > 0 ? ` - ${communitiesWithoutReport} ${communitiesWithoutReport === 1 ? 'has' : 'have'} no report` : '')
+                  + (staleCount > 0 ? ` - ${staleCount} last reported over ${STALE_REPORT_DAYS} days ago (their last report is still counted)` : '')
+                  + '. The goal gap will read as met or missed once every community is current.'}
           </div>
         </div>
       )}

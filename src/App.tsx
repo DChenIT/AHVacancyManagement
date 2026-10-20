@@ -188,6 +188,7 @@ export default function App() {
             onViewReport={goToPreview}
             fastTrack={{ openUnits: fastTrackOpen, reviewedCount: fastTrackReviewed.length, loading: fastTrack.loading, error: fastTrack.error }}
             onOpenCompliance={() => handleTabChange('compliance')}
+            isFiltered={roleScoped.length !== communities.length}
           />
         )}
         {activeTab === 'compliance' && (
