@@ -221,6 +221,7 @@ export default function App() {
             initialCommunityId={previewTarget?.communityId}
             initialReportId={previewTarget?.reportId}
             isAdmin={userIsAdmin}
+            currentUser={currentUser}
             onEditReport={goToEdit}
           />
         )}

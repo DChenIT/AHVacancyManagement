@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { Community } from '../../hooks/useCommunities';
 import { useVacancyReports } from '../../hooks/useVacancyReports';
 import { useUnitUpdates, deleteUnitsForReport } from '../../hooks/useUnitUpdates';
 import { useUnitStreaks } from '../../hooks/useUnitStreaks';
 import { StatusBadge } from '../shared/StatusBadge';
 import { AuditTrailModal, formatDateTime } from './AuditTrailModal';
+import { CommentToggle, CommentThread } from './UnitComments';
+import { useUnitComments } from '../../hooks/useUnitComments';
+import { actorName } from '../../hooks/useReportAudit';
+import type { CurrentUser } from '../../hooks/useCurrentUser';
 import { STATUS_CATEGORY_LABEL, STATUS_CATEGORY_SORT_ORDER, REPORT_STATUS_OPTIONS, AGING_DAYS_THRESHOLD, AGING_STREAK_THRESHOLD } from '../../types';
 
 function daysBetween(from: string, to: string): number {
@@ -40,6 +44,7 @@ interface Props {
   initialCommunityId?: string;
   initialReportId?: string;
   isAdmin?: boolean;
+  currentUser?: CurrentUser | null;
   onEditReport?: (communityId: string, reportId: string) => void;
 }
 
@@ -48,17 +53,20 @@ const selectStyle: React.CSSProperties = {
   borderRadius: 6, padding: '8px 10px', fontSize: 15, minWidth: 220,
 };
 
-export function ReportPreview({ communities, communitiesLoading, initialCommunityId, initialReportId, isAdmin, onEditReport }: Props) {
+export function ReportPreview({ communities, communitiesLoading, initialCommunityId, initialReportId, isAdmin, currentUser, onEditReport }: Props) {
   const [communityId, setCommunityId] = useState(initialCommunityId ?? '');
   const [reportId, setReportId] = useState(initialReportId ?? '');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [showAudit, setShowAudit] = useState(false);
+  // Units whose discussion is expanded (by unit row id).
+  const [openThreads, setOpenThreads] = useState<Set<string>>(new Set());
 
   useEffect(() => { if (initialCommunityId) setCommunityId(initialCommunityId); }, [initialCommunityId]);
   useEffect(() => { if (initialReportId) setReportId(initialReportId); }, [initialReportId]);
 
   const community = communities.find(c => c.id === communityId);
+  const { commentsFor, addComment, deleteComment } = useUnitComments(communityId || undefined);
   const { reports, loading: reportsLoading, deleteReport } = useVacancyReports(communityId || undefined);
   const report = reports.find(r => r.id === reportId) ?? reports[0];
   const { units, loading: unitsLoading } = useUnitUpdates(report?.id);
@@ -205,6 +213,7 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
                   {['Unit', 'Applicant', 'Status', 'Aging', 'Next Step / Outstanding Items'].map(h => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
                   ))}
+                  <th className="no-print" style={{ textAlign: 'right', padding: '8px 10px', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>Comments</th>
                 </tr>
               </thead>
               <tbody>
@@ -213,8 +222,11 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
                   const isOpen = category !== 'Approved';
                   const streak = streaks[u.unitNumber.trim().toLowerCase()] ?? 1;
                   const daysVacant = u.actualVacancyDate ? Math.max(0, daysBetween(u.actualVacancyDate, report.reportDate)) : undefined;
+                  const unitComments = commentsFor(u.unitNumber);
+                  const threadOpen = openThreads.has(u.id);
                   return (
-                    <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <Fragment key={u.id}>
+                    <tr style={{ borderBottom: threadOpen ? 'none' : '1px solid var(--border)' }}>
                       <td style={{ padding: '8px 10px', color: 'var(--text-primary)', fontSize: 14 }}>{u.unitNumber}</td>
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>{u.currentApplicantName || '—'}</td>
                       <td style={{ padding: '8px 10px' }}>
@@ -226,11 +238,42 @@ export function ReportPreview({ communities, communitiesLoading, initialCommunit
                       <td style={{ padding: '8px 10px', color: 'var(--text-secondary)', fontSize: 14 }}>
                         {u.nextStep || '—'}{u.nextStepDueDate ? ` (due ${u.nextStepDueDate})` : ''}
                       </td>
+                      <td className="no-print" style={{ padding: '8px 10px', textAlign: 'right' }}>
+                        <CommentToggle
+                          count={unitComments.length}
+                          open={threadOpen}
+                          onToggle={() => setOpenThreads(prev => {
+                            const next = new Set(prev);
+                            if (next.has(u.id)) next.delete(u.id); else next.add(u.id);
+                            return next;
+                          })}
+                        />
+                      </td>
                     </tr>
+                    {threadOpen && (
+                      <tr className="no-print" style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td colSpan={6} style={{ padding: 0 }}>
+                          <CommentThread
+                            unitNumber={u.unitNumber}
+                            comments={unitComments}
+                            reportDate={report.reportDate}
+                            currentUser={currentUser ?? null}
+                            isAdmin={isAdmin}
+                            onPost={text => addComment({
+                              unitNumber: u.unitNumber, text,
+                              author: actorName(currentUser ?? null) ?? 'Unknown', authorEmail: currentUser?.email ?? '',
+                              reportDate: report.reportDate,
+                            })}
+                            onDelete={deleteComment}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
                 {sortedUnits.length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>
+                  <tr><td colSpan={6} style={{ padding: 14, color: 'var(--text-muted)', fontSize: 14 }}>
                     {report.nothingToReport ? 'Nothing to report this week.' : 'No units recorded for this report.'}
                   </td></tr>
                 )}
