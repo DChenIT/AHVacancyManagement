@@ -49,6 +49,7 @@ function TeamCell({ community, assignTeamMember }: { community: Community; assig
   const [editingRole, setEditingRole] = useState<TeamRole | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<OrgUser[]>([]);
+  const [searchNote, setSearchNote] = useState<string | undefined>();
   const [searching, setSearching] = useState(false);
   const [busyRole, setBusyRole] = useState<TeamRole | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +60,7 @@ function TeamCell({ community, assignTeamMember }: { community: Community; assig
     setSearching(true);
     const timer = setTimeout(async () => {
       const found = await search(query);
-      if (!cancelled) { setResults(found); setSearching(false); }
+      if (!cancelled) { setResults(found.users); setSearchNote(found.note); setSearching(false); }
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [query, editingRole, search]);
@@ -115,7 +116,7 @@ function TeamCell({ community, assignTeamMember }: { community: Community; assig
                 maxHeight: 160, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               }}>
                 {searching && <div style={{ padding: '6px 8px', color: 'var(--text-muted)', fontSize: 12.5 }}>Searching…</div>}
-                {!searching && results.length === 0 && <div style={{ padding: '6px 8px', color: 'var(--text-muted)', fontSize: 12.5 }}>No matches.</div>}
+                {!searching && results.length === 0 && <div style={{ padding: '6px 8px', color: searchNote ? 'var(--warning)' : 'var(--text-muted)', fontSize: 12.5 }}>{searchNote ?? 'No matches.'}</div>}
                 {!searching && results.map(u => (
                   <button
                     key={u.id}
@@ -141,6 +142,7 @@ function TeamAssignment({ communities, assignTeamMember }: { communities: Commun
   const [role, setRole] = useState<TeamRole>('regionalManager');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<OrgUser[]>([]);
+  const [searchNote, setSearchNote] = useState<string | undefined>();
   const [searching, setSearching] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<OrgUser | null>(null);
   const [communitySearch, setCommunitySearch] = useState('');
@@ -156,7 +158,7 @@ function TeamAssignment({ communities, assignTeamMember }: { communities: Commun
     setSearching(true);
     const timer = setTimeout(async () => {
       const found = await search(query);
-      if (!cancelled) { setResults(found); setSearching(false); }
+      if (!cancelled) { setResults(found.users); setSearchNote(found.note); setSearching(false); }
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [query, search]);
@@ -241,7 +243,7 @@ function TeamAssignment({ communities, assignTeamMember }: { communities: Commun
                 }}>
                   {searching && <div style={{ padding: '8px 10px', color: 'var(--text-muted)', fontSize: 13 }}>Searching…</div>}
                   {!searching && results.length === 0 && (
-                    <div style={{ padding: '8px 10px', color: 'var(--text-muted)', fontSize: 13 }}>No matches.</div>
+                    <div style={{ padding: '8px 10px', color: searchNote ? 'var(--warning)' : 'var(--text-muted)', fontSize: 13 }}>{searchNote ?? 'No matches.'}</div>
                   )}
                   {!searching && results.map(u => (
                     <button
