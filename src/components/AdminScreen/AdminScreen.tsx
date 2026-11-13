@@ -39,6 +39,43 @@ const cellInputStyle: React.CSSProperties = {
   border: '1px solid var(--border)', backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)',
 };
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Manual override for when the directory lookup can't find (or can't reach) the person: type their name and,
+// ideally, their email. Email is optional here, but without it the person shows by name only and can't be
+// messaged (e.g. the Teams notification to a Site Admin needs it).
+function ManualPersonForm({ initialName, busy, onSave, onCancel, compact }: {
+  initialName: string; busy?: boolean; compact?: boolean;
+  onSave: (person: { displayName: string; email: string }) => void; onCancel: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [email, setEmail] = useState('');
+  const emailOk = !email.trim() || EMAIL_PATTERN.test(email.trim());
+  const canSave = !!name.trim() && emailOk && !busy;
+  const fieldStyle: React.CSSProperties = compact ? { ...cellInputStyle, width: '100%', flex: 'none', boxSizing: 'border-box' } : { ...inputStyle };
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 6, padding: compact ? '6px 0 2px 72px' : '8px 10px',
+      border: compact ? 'none' : '1px solid var(--border)', borderRadius: 8, backgroundColor: compact ? 'transparent' : 'var(--bg-subtle)',
+    }}>
+      <input type="text" placeholder="Full name" value={name} onChange={e => setName(e.target.value)} style={fieldStyle} aria-label="Full name" />
+      <input
+        type="email" placeholder="Email (needed for notifications)" value={email} onChange={e => setEmail(e.target.value)}
+        style={{ ...fieldStyle, ...(emailOk ? {} : { borderColor: 'var(--danger)' }) }} aria-label="Email"
+      />
+      {!emailOk && <span style={{ color: 'var(--danger)', fontSize: 11.5 }}>That doesn't look like an email address.</span>}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button
+          onClick={() => onSave({ displayName: name.trim(), email: email.trim() })}
+          disabled={!canSave}
+          style={{ backgroundColor: 'var(--accent)', color: 'var(--accent-fg)', border: 'none', borderRadius: 6, padding: compact ? '3px 12px' : '6px 14px', fontSize: compact ? 12.5 : 14, fontWeight: 600, cursor: canSave ? 'pointer' : 'default', opacity: canSave ? 1 : 0.6 }}
+        >{busy ? 'Saving…' : 'Use this person'}</button>
+        <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: compact ? 12.5 : 14, cursor: 'pointer', textDecoration: 'underline' }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 // Clearing a role reuses assignTeamMember with a blank person - the underlying update just
 // writes empty strings to the name/email fields, which every other read site already treats
 // as "unassigned" (falsy checks in personMatchesUser / distinctValues / currentAssignee).
@@ -52,6 +89,7 @@ function TeamCell({ community, assignTeamMember }: { community: Community; assig
   const [searchNote, setSearchNote] = useState<string | undefined>();
   const [searching, setSearching] = useState(false);
   const [busyRole, setBusyRole] = useState<TeamRole | null>(null);
+  const [manualRole, setManualRole] = useState<{ role: TeamRole; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,6 +108,7 @@ function TeamCell({ community, assignTeamMember }: { community: Community; assig
     setError(null);
     try {
       await assignTeamMember([community.id], role, person);
+      setManualRole(null);
       setEditingRole(null);
       setQuery('');
       setResults([]);
@@ -127,7 +166,17 @@ function TeamCell({ community, assignTeamMember }: { community: Community; assig
                     {u.displayName} <span style={{ color: 'var(--text-muted)', fontSize: 11.5 }}>{u.email}</span>
                   </button>
                 ))}
+                {!searching && (
+                  <button
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => { setManualRole({ role, name: query.trim() }); setEditingRole(null); setQuery(''); }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--border)', padding: '6px 8px', fontSize: 12.5, color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}
+                  >✏️ Not listed? Enter manually…</button>
+                )}
               </div>
+            )}
+            {manualRole?.role === role && (
+              <ManualPersonForm compact initialName={manualRole.name} busy={busyRole === role} onSave={person => save(role, person)} onCancel={() => setManualRole(null)} />
             )}
           </div>
         );
@@ -145,6 +194,7 @@ function TeamAssignment({ communities, assignTeamMember }: { communities: Commun
   const [searchNote, setSearchNote] = useState<string | undefined>();
   const [searching, setSearching] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<OrgUser | null>(null);
+  const [manualName, setManualName] = useState<string | null>(null);
   const [communitySearch, setCommunitySearch] = useState('');
   const [selectedCommunityIds, setSelectedCommunityIds] = useState<Set<string>>(new Set());
   const [assigning, setAssigning] = useState(false);
@@ -227,7 +277,13 @@ function TeamAssignment({ communities, assignTeamMember }: { communities: Commun
               <button onClick={() => setSelectedPerson(null)} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 14, cursor: 'pointer' }}>✕</button>
             </div>
           ) : (
-            <>
+            manualName !== null ? (
+              <ManualPersonForm
+                initialName={manualName}
+                onSave={person => { setSelectedPerson({ id: 'manual', ...person }); setManualName(null); setQuery(''); setResults([]); }}
+                onCancel={() => setManualName(null)}
+              />
+            ) : <>
               <input
                 type="text"
                 placeholder="Search the directory by name…"
@@ -257,6 +313,12 @@ function TeamAssignment({ communities, assignTeamMember }: { communities: Commun
                       {u.displayName} <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{u.email}</span>
                     </button>
                   ))}
+                  {!searching && (
+                    <button
+                      onClick={() => setManualName(query.trim())}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', borderTop: '1px solid var(--border)', padding: '8px 10px', fontSize: 13.5, color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}
+                    >✏️ Not listed? Enter manually…</button>
+                  )}
                 </div>
               )}
             </>

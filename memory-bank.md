@@ -371,3 +371,6 @@ Team members' "Reviewed" checkbox silently did nothing: it writes to a unit row 
 
 ## 2026-11-13 — Directory search explains empty results
 - `useOrgUserSearch` now returns `{ users, note }`. The search used to swallow every error and silently drop anyone not on `@humangood.org`, so a dev-tenant account or a connector failure both looked like "No matches". The Admin people pickers now show the reason (connector error text, or "found N in the directory, but none with a @humangood.org address"). The domain filter itself is unchanged (`ALLOWED_EMAIL_DOMAIN`, tenant-specific).
+
+## 2026-11-13 — Manual override in the Admin people pickers
+- Both pickers (per-community Team cell and the Team Member Assignments box) end their dropdown with "✏️ Not listed? Enter manually…", opening a small form (`ManualPersonForm` in `AdminScreen.tsx`): full name (required, prefilled from what was typed) and email (optional, format-checked; needed for anything that messages the person, e.g. the Site Admin Teams flow). Saves through the same `assignTeamMember` path as a directory pick, so it works for every role and for multi-community assignment. Added so assignment still works when the directory lookup fails or the person is outside `@humangood.org`.
