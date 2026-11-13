@@ -12,6 +12,7 @@ export interface Community {
   regionalManagerEmail?: string;
   /** Site Administrator, synced from the company's SharePoint property roster */
   propertyManager?: string;
+  propertyManagerEmail?: string;
   director?: string;
   directorEmail?: string;
   assetManager?: string;
@@ -24,12 +25,13 @@ export interface Community {
   defaultReportRecipients?: string;
 }
 
-// The four assignable team-member roles, editable from the Admin screen's people picker (backed
+// The five assignable team-member roles (Site Admin included), editable from the Admin screen's people picker (backed
 // by the Office 365 Users directory) as an alternative to the CSV roster import - CSV writes only
 // the name field (no email available in a raw SharePoint export), the picker writes both.
-export type TeamRole = 'regionalManager' | 'regionalMaintenanceSupervisor' | 'director' | 'complianceSpecialist';
+export type TeamRole = 'siteAdmin' | 'regionalManager' | 'regionalMaintenanceSupervisor' | 'director' | 'complianceSpecialist';
 
 const ROLE_FIELDS: Record<TeamRole, { name: string; email: string }> = {
+  siteAdmin: { name: 'cr1e9_propertymanager', email: 'cr1e9_propertymanageremail' },
   regionalManager: { name: 'cr1e9_regionalmanager', email: 'cr1e9_regionalmanageremail' },
   regionalMaintenanceSupervisor: { name: 'cr1e9_regionalmaintenancesupervisor', email: 'cr1e9_regionalmaintenancesupervisoremail' },
   director: { name: 'cr1e9_director', email: 'cr1e9_directoremail' },
@@ -45,6 +47,7 @@ function mapCommunity(raw: {
   cr1e9_regionalmanager?: string;
   cr1e9_regionalmanageremail?: string;
   cr1e9_propertymanager?: string;
+  cr1e9_propertymanageremail?: string;
   cr1e9_director?: string;
   cr1e9_directoremail?: string;
   cr1e9_assetmanager?: string;
@@ -64,6 +67,7 @@ function mapCommunity(raw: {
     regionalManager: raw.cr1e9_regionalmanager || undefined,
     regionalManagerEmail: raw.cr1e9_regionalmanageremail || undefined,
     propertyManager: raw.cr1e9_propertymanager || undefined,
+    propertyManagerEmail: raw.cr1e9_propertymanageremail || undefined,
     director: raw.cr1e9_director || undefined,
     directorEmail: raw.cr1e9_directoremail || undefined,
     assetManager: raw.cr1e9_assetmanager || undefined,
@@ -88,7 +92,7 @@ export function useCommunities() {
       const result = await Cr1e9_communitiesesService.getAll({
         select: [
           'cr1e9_communitiesid', 'cr1e9_name', 'cr1e9_communitycode', 'cr1e9_active', 'cr1e9_hoppergoal',
-          'cr1e9_regionalmanager', 'cr1e9_regionalmanageremail', 'cr1e9_propertymanager',
+          'cr1e9_regionalmanager', 'cr1e9_regionalmanageremail', 'cr1e9_propertymanager', 'cr1e9_propertymanageremail',
           'cr1e9_director', 'cr1e9_directoremail', 'cr1e9_assetmanager',
           'cr1e9_regionalmaintenancesupervisor', 'cr1e9_regionalmaintenancesupervisoremail',
           'cr1e9_compliancespecialist', 'cr1e9_compliancespecialistemail',

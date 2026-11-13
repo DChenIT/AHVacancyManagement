@@ -11,6 +11,7 @@ interface Props {
 }
 
 const ROLE_OPTIONS: { value: TeamRole; label: string }[] = [
+  { value: 'siteAdmin', label: 'Site Administrator' },
   { value: 'regionalManager', label: 'Regional Property Supervisor (RPS)' },
   { value: 'regionalMaintenanceSupervisor', label: 'Regional Maintenance Supervisor (RMS)' },
   { value: 'director', label: 'Director' },
@@ -19,6 +20,7 @@ const ROLE_OPTIONS: { value: TeamRole; label: string }[] = [
 
 function currentAssignee(c: Community, role: TeamRole): string | undefined {
   switch (role) {
+    case 'siteAdmin': return c.propertyManager;
     case 'regionalManager': return c.regionalManager;
     case 'regionalMaintenanceSupervisor': return c.regionalMaintenanceSupervisor;
     case 'director': return c.director;
@@ -27,7 +29,7 @@ function currentAssignee(c: Community, role: TeamRole): string | undefined {
 }
 
 const ROLE_SHORT_LABELS: Record<TeamRole, string> = {
-  regionalManager: 'RPS', regionalMaintenanceSupervisor: 'RMS', director: 'Director', complianceSpecialist: 'Compliance',
+  siteAdmin: 'Site Admin', regionalManager: 'RPS', regionalMaintenanceSupervisor: 'RMS', director: 'Director', complianceSpecialist: 'Compliance',
 };
 const ALL_ROLES = Object.keys(ROLE_SHORT_LABELS) as TeamRole[];
 const UNASSIGNED_FILTER = '__unassigned__';
@@ -350,7 +352,7 @@ export function AdminScreen({ communities, communitiesLoading, updateCommunity, 
 
   const [search, setSearch] = useState('');
   const [teamFilters, setTeamFilters] = useState<Record<TeamRole, string>>({
-    regionalManager: '', regionalMaintenanceSupervisor: '', director: '', complianceSpecialist: '',
+    siteAdmin: '', regionalManager: '', regionalMaintenanceSupervisor: '', director: '', complianceSpecialist: '',
   });
   const [drafts, setDrafts] = useState<Record<string, CommunityDraft>>({});
   const [savingId, setSavingId] = useState<string | null>(null);

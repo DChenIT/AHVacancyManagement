@@ -246,6 +246,7 @@ AddBooleanColumn      $communitiesTable "active"                  "Active"
 AddWholeNumberColumn  $communitiesTable "hoppergoal"              "Hopper Goal"
 AddStringColumn       $communitiesTable "regionalmanager"         "Regional Manager"         200 $false
 AddStringColumn       $communitiesTable "propertymanager"         "Property Manager"         200 $false
+AddStringColumn       $communitiesTable "propertymanageremail"    "Property Manager Email"   200 $false
 AddMemoColumn         $communitiesTable "defaultreportrecipients" "Default Report Recipients"
 
 # ============================
