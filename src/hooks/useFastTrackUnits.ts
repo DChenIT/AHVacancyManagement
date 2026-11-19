@@ -11,10 +11,21 @@ import { getAllPages } from './getAllPages';
 // out separately from the community ranking table since these are expected to fill fastest and
 // warrant a quick follow-up (chase the compliance reviewer, resolve the correction) rather than
 // being buried in a per-community report. Requested by the Affordable Housing Team.
-const FAST_TRACK_DETAILS = new Set(['Submitted to Compliance', 'Corrections Requested', 'Referral Pending']);
+// Corrections Resubmitted is waiting on Compliance just like a first submission - without it a resubmitted
+// file dropped out of the Open list entirely.
+const FAST_TRACK_DETAILS = new Set(['Submitted to Compliance', 'Corrections Resubmitted', 'Corrections Requested', 'Referral Pending']);
 
-export const REVIEW_OUTCOMES = ['Approved', 'Corrections Requested', 'Denied'] as const;
+// Matches the Compliance checklist's wording (labels come from the choice column; these must stay identical to them).
+export const CONDITIONAL_OUTCOME = 'Conditional - Corrections Requested';
+export const REVIEW_OUTCOMES = ['Approved', CONDITIONAL_OUTCOME, 'Denied'] as const;
 export type ReviewOutcome = typeof REVIEW_OUTCOMES[number];
+
+// A review that also sets the unit's own Status Detail, so the site's status matches Compliance's decision
+// instead of lagging until the next weekly report.
+const OUTCOME_SETS_DETAIL: Partial<Record<ReviewOutcome, string>> = {
+  Denied: 'Denied',
+  [CONDITIONAL_OUTCOME]: 'Corrections Requested',
+};
 const OUTCOME_CODE = Object.fromEntries(
   Object.entries(OUTCOME_ENUM).map(([code, label]) => [label, Number(code)]),
 ) as Record<ReviewOutcome, number>;
@@ -52,6 +63,8 @@ export interface FastTrackUnit {
   reviewedBy?: string;
   reviewedDate?: string;
   reviewOutcome?: ReviewOutcome; // absent on units reviewed before outcomes existed
+  /** Open because Compliance gave a conditional decision and the site hasn't resubmitted yet - waiting on corrections, not on a review. */
+  awaitingCorrections?: boolean;
 }
 
 interface Row {
@@ -82,6 +95,8 @@ const dateOnly = (v?: string | null) => (v ? v.split('T')[0] : undefined);
  *   been reviewed *for that status*. A review stays attached to a case from week to week (new weekly rows
  *   don't reset it), but a change of Status Detail after a review - e.g. Corrections Requested then
  *   resubmitted - is a new round and opens it again.
+ * - A conditional decision (corrections requested) keeps the case Open, marked as awaiting corrections, until
+ *   the site's status moves on - otherwise nobody is reminded the site still owes corrections.
  * - Reviewed: every case that has ever been reviewed, whatever it has become since. A case can be in both
  *   lists at once when a later round is open; the Reviewed row's Current Status makes that clear.
  */
@@ -105,7 +120,7 @@ function buildApprovals(rows: Row[], latestReportByCommunity: Map<string, string
       .sort((a, b) => (b.reviewedDate ?? '').localeCompare(a.reviewedDate ?? '') || b.reportDate.localeCompare(a.reportDate));
     const latestReview = reviews[0];
 
-    const toUnit = (withReview: boolean): FastTrackUnit => ({
+    const toUnit = (withReview: boolean, awaitingCorrections = false): FastTrackUnit => ({
       unitId: newest.unitId,
       communityId: newest.communityId,
       communityName: name,
@@ -119,6 +134,7 @@ function buildApprovals(rows: Row[], latestReportByCommunity: Map<string, string
       reportId: newest.reportId,
       reportDate: newest.reportDate,
       reviewed: withReview,
+      awaitingCorrections,
       ...(withReview && latestReview ? {
         reviewUnitId: latestReview.unitId,
         reviewedBy: latestReview.reviewedBy,
@@ -128,15 +144,17 @@ function buildApprovals(rows: Row[], latestReportByCommunity: Map<string, string
     });
 
     const reviewedForCurrentStatus = !!latestReview && latestReview.detail === newest.detail;
-    if (FAST_TRACK_DETAILS.has(newest.detail) && latestReportByCommunity.get(newest.communityId) === newest.reportId && !reviewedForCurrentStatus) {
-      open.push(toUnit(false));
+    const conditionalPending = reviewedForCurrentStatus && latestReview!.reviewOutcome === CONDITIONAL_OUTCOME;
+    if (FAST_TRACK_DETAILS.has(newest.detail) && latestReportByCommunity.get(newest.communityId) === newest.reportId
+      && (!reviewedForCurrentStatus || conditionalPending)) {
+      open.push(conditionalPending ? toUnit(true, true) : toUnit(false));
     }
     if (latestReview) reviewed.push(toUnit(true));
   }
 
   // Corrections Requested and Referral Pending are blocking on the applicant/staff/partner and need active
-  // follow-up; Submitted to Compliance is just waiting on the reviewer - so those two sort first, and
-  // within each the longest-sitting goes first.
+  // follow-up; Submitted to Compliance and Corrections Resubmitted are waiting on the reviewer - so the first
+  // two sort first, and within each the longest-sitting goes first.
   const rank = (d: string) => (d === 'Corrections Requested' || d === 'Referral Pending' ? 0 : 1);
   open.sort((a, b) => rank(a.statusDetail) - rank(b.statusDetail) || (a.statusSince ?? a.reportDate).localeCompare(b.statusSince ?? b.reportDate));
   reviewed.sort((a, b) => (b.reviewedDate ?? '').localeCompare(a.reviewedDate ?? ''));
@@ -236,13 +254,14 @@ export function useFastTrackUnits(communities: Community[], enabled = true) {
       cr1e9_fasttrackreviewedby: reviewerName,
       cr1e9_fasttrackrevieweddate: today,
       // Denied is a final status, so the unit's own status detail follows it.
-      ...(outcome === 'Denied' ? { cr1e9_currentstatusdetail: DETAIL_CODE.Denied, cr1e9_statusdetaildate: today } : {}),
+      ...(OUTCOME_SETS_DETAIL[outcome] ? { cr1e9_currentstatusdetail: DETAIL_CODE[OUTCOME_SETS_DETAIL[outcome]!], cr1e9_statusdetaildate: today } : {}),
     } as any);
     if (result.error) throw new Error(result.error.message ?? 'Failed to mark reviewed');
     const unit = units.find(u => u.unitId === unitId);
     if (unit) {
+      const setDetail = OUTCOME_SETS_DETAIL[outcome];
       await logReportAudit(unit.reportId, 'Reviewed', reviewerName,
-        `Unit ${unit.unitNumber} — marked ${outcome}${outcome === 'Denied' ? ' (Status Detail set to Denied)' : ''}`);
+        `Unit ${unit.unitNumber} — marked ${outcome}${setDetail ? ` (Status Detail set to ${setDetail})` : ''}`);
     }
     await refresh();
   }, [refresh, units]);
@@ -251,7 +270,7 @@ export function useFastTrackUnits(communities: Community[], enabled = true) {
   // user - this is a UI-level courtesy (same trust model as the rest of the app's name-based
   // checks like "Show only my communities"), not a Dataverse-enforced security boundary.
   // `reviewUnitId` is the row the review is stored on, which can be an earlier week's row.
-  const unmarkReviewed = useCallback(async (reviewUnitId: string, reviewerName: string, wasDenied = false) => {
+  const unmarkReviewed = useCallback(async (reviewUnitId: string, reviewerName: string, restoreStatus = false) => {
     // Explicit null (not undefined) - Dataverse only clears a field when the property is
     // actually present in the PATCH body with a null value; an omitted key leaves it unchanged.
     const result = await Cr1e9_unitupdatesesService.update(reviewUnitId, {
@@ -259,18 +278,23 @@ export function useFastTrackUnits(communities: Community[], enabled = true) {
       cr1e9_fasttrackreviewoutcome: null,
       cr1e9_fasttrackreviewedby: null,
       cr1e9_fasttrackrevieweddate: null,
-      // Undoing a denial puts the unit back in the queue it came from (we don't keep the prior detail,
-      // so it returns as Submitted to Compliance).
-      ...(wasDenied ? { cr1e9_currentstatusdetail: DETAIL_CODE['Submitted to Compliance'], cr1e9_statusdetaildate: new Date().toISOString().split('T')[0] } : {}),
+      // Undoing a decision that changed the Status Detail (Denied / Conditional) puts the unit back in the queue
+      // it came from (we don't keep the prior detail, so it returns as Submitted to Compliance).
+      ...(restoreStatus ? { cr1e9_currentstatusdetail: DETAIL_CODE['Submitted to Compliance'], cr1e9_statusdetaildate: new Date().toISOString().split('T')[0] } : {}),
     } as any);
     if (result.error) throw new Error(result.error.message ?? 'Failed to unmark reviewed');
     const unit = reviewedUnits.find(u => u.reviewUnitId === reviewUnitId);
     if (unit) {
       await logReportAudit(unit.reportId, 'Review undone', reviewerName,
-        `Unit ${unit.unitNumber} — review removed${wasDenied ? ' (Status Detail returned to Submitted to Compliance)' : ''}`);
+        `Unit ${unit.unitNumber} — review removed${restoreStatus ? ' (Status Detail returned to Submitted to Compliance)' : ''}`);
     }
     await refresh();
   }, [refresh, reviewedUnits]);
 
   return { units, reviewedUnits, loading, error, refresh, markReviewed, unmarkReviewed };
+}
+
+/** Whether undoing this review should also put the unit's Status Detail back (it was changed by the review). */
+export function reviewChangedStatus(outcome: ReviewOutcome | undefined): boolean {
+  return !!outcome && !!OUTCOME_SETS_DETAIL[outcome];
 }
